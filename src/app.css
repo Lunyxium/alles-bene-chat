@@ -1,15 +1,75 @@
-/* Tailwind Directives */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-/* Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Tahoma:wght@400;700&display=swap');
+/* MSN Messenger Theme Variables */
+@theme {
+    --font-family-sans: "Tahoma", "Verdana", system-ui, sans-serif;
+    --color-msn-blue: #0054E3;
+    --color-msn-blue-dark: #0046C7;
+    --color-msn-border: #7A96DF;
+    --color-msn-gray: #ECE9D8;
+    --color-msn-window: #D7E4F5;
+    --color-msn-text: #434C4B;
+}
 
 /* Global Styles */
 body {
-    font-family: 'Tahoma', system-ui, -apple-system, sans-serif;
+    font-family: var(--font-family-sans);
     font-size: 13px;
+}
+
+/* MSN Window Styles */
+.msn-window {
+    background: linear-gradient(180deg, #D8E8F7 0%, #F5F2F9 50%, #D8E8F7 100%);
+    border-radius: 6px;
+    box-shadow:
+            2px 2px 5px rgba(0,0,0,0.3),
+            5px 5px 10px rgba(0,0,0,0.5);
+}
+
+.msn-titlebar {
+    background: linear-gradient(180deg, #0054E3 0%, #0046C7 100%);
+    padding: 6px 8px;
+    border-radius: 6px 6px 0 0;
+    color: white;
+    font-weight: bold;
+    font-size: 11px;
+}
+
+.msn-button {
+    background: linear-gradient(180deg, #FFFFFF 0%, #ECE9D8 100%);
+    border: 1px solid #003C74;
+    border-radius: 3px;
+    padding: 4px 12px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.1s;
+}
+
+.msn-button:hover {
+    background: linear-gradient(180deg, #E5F3FF 0%, #C3E0FF 100%);
+}
+
+.msn-button:active {
+    box-shadow: inset 1px 1px 2px rgba(0,0,0,0.3);
+}
+
+/* Chat Bubble Styles */
+.chat-bubble {
+    background: #FBFBFB;
+    border: 1px solid #93989C;
+    border-radius: 5px;
+    padding: 8px;
+    margin: 4px 0;
+    font-size: 11px;
+}
+
+/* Status Indicators */
+.status-online {
+    background: #7FBA00;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
 }
 
 /* MSN Animations */
@@ -23,8 +83,16 @@ body {
     60% { transform: translateX(2px) rotate(0.5deg); }
 }
 
+.nudge {
+    animation: nudge 0.5s ease-in-out;
+}
+
 @keyframes pulse {
-    0% { box-shadow: 0 0 0 0 rgba(127, 186, 0, 0.7); }
-    70% { box-shadow: 0 0 0 4px rgba(127, 186, 0, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(127, 186, 0, 0); }
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.pulse {
+    animation: pulse 2s infinite;
 }
