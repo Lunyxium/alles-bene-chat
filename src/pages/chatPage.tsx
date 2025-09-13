@@ -1,8 +1,9 @@
 import { ChatBoard, ChatBar } from '@/components'
 import { useState, useEffect } from 'react'
 import { auth, db } from '@/lib/firebase'
-import { collection, onSnapshot, query, where, doc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { collection, onSnapshot, query, where, doc, setDoc, updateDoc, serverTimestamp, deleteDoc } from 'firebase/firestore'
 import { useNavigate } from 'react-router-dom'
+import { signOut } from 'firebase/auth'
 
 interface OnlineUser {
     id: string
@@ -15,6 +16,7 @@ interface OnlineUser {
 export function ChatPage() {
     const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([])
     const [showShareModal, setShowShareModal] = useState(false)
+    const [isLoggingOut, setIsLoggingOut] = useState(false)
     const navigate = useNavigate()
     const currentUser = auth.currentUser
 
@@ -40,27 +42,59 @@ export function ChatPage() {
             setOnlineUsers(users)
         })
 
-        // Set offline on unmount
-        return () => {
+        // Set offline on unmount or page unload
+        const handleBeforeUnload = () => {
             updateDoc(userRef, {
                 isOnline: false,
                 lastSeen: serverTimestamp()
             }).catch(console.error)
+        }
+
+        window.addEventListener('beforeunload', handleBeforeUnload)
+
+        return () => {
+            handleBeforeUnload()
+            window.removeEventListener('beforeunload', handleBeforeUnload)
             unsubscribe()
         }
     }, [currentUser])
 
     const handleLogout = async () => {
-        if (confirm('Möchtest du wirklich den Chat verlassen?')) {
+        // Besserer Dialog mit klarem Text
+        const confirmLogout = window.confirm('Möchtest du dich wirklich ausloggen?\n\nKlicke "OK" zum Ausloggen oder "Abbrechen" um im Chat zu bleiben.')
+
+        if (!confirmLogout) return
+
+        setIsLoggingOut(true)
+
+        try {
+            // Erst User offline setzen
             if (currentUser) {
                 const userRef = doc(db, 'users', currentUser.uid)
-                await updateDoc(userRef, {
-                    isOnline: false,
-                    lastSeen: serverTimestamp()
-                })
+
+                // Verwende deleteDoc statt updateDoc für sauberen Logout
+                try {
+                    await updateDoc(userRef, {
+                        isOnline: false,
+                        lastSeen: serverTimestamp()
+                    })
+                } catch (error) {
+                    console.log('Could not update user status:', error)
+                    // Fortfahren auch wenn Update fehlschlägt
+                }
             }
-            await auth.signOut()
+
+            // Dann ausloggen
+            await signOut(auth)
+
+            // Navigation erfolgt automatisch durch AuthProvider/RequireAuth
+            // Explizite Navigation als Fallback
             navigate('/login')
+
+        } catch (error) {
+            console.error('Logout error:', error)
+            alert('Fehler beim Ausloggen. Bitte versuche es erneut.')
+            setIsLoggingOut(false)
         }
     }
 
@@ -70,7 +104,19 @@ export function ChatPage() {
 
     const copyLink = () => {
         navigator.clipboard.writeText(window.location.origin)
-        alert('Link wurde in die Zwischenablage kopiert! 📋')
+            .then(() => {
+                alert('Link wurde in die Zwischenablage kopiert! 📋')
+            })
+            .catch(() => {
+                // Fallback für ältere Browser
+                const input = document.createElement('input')
+                input.value = window.location.origin
+                document.body.appendChild(input)
+                input.select()
+                document.execCommand('copy')
+                document.body.removeChild(input)
+                alert('Link wurde in die Zwischenablage kopiert! 📋')
+            })
     }
 
     const shareWhatsApp = () => {
@@ -95,15 +141,23 @@ export function ChatPage() {
                             </span>
                         </div>
                         <div className="flex gap-1">
-                            <button className="w-5 h-5 bg-gradient-to-b from-white to-[#ECE9D8] border border-[#003C74] rounded-sm flex items-center justify-center hover:from-[#E5F3FF] hover:to-[#C3E0FF]">
+                            <button
+                                className="w-5 h-5 bg-gradient-to-b from-white to-[#ECE9D8] border border-[#003C74] rounded-sm flex items-center justify-center hover:from-[#E5F3FF] hover:to-[#C3E0FF]"
+                                title="Minimieren"
+                            >
                                 <span className="text-[10px] font-bold mt-[-4px]">_</span>
                             </button>
-                            <button className="w-5 h-5 bg-gradient-to-b from-white to-[#ECE9D8] border border-[#003C74] rounded-sm flex items-center justify-center hover:from-[#E5F3FF] hover:to-[#C3E0FF]">
+                            <button
+                                className="w-5 h-5 bg-gradient-to-b from-white to-[#ECE9D8] border border-[#003C74] rounded-sm flex items-center justify-center hover:from-[#E5F3FF] hover:to-[#C3E0FF]"
+                                title="Maximieren"
+                            >
                                 <span className="text-[10px] font-bold">□</span>
                             </button>
                             <button
                                 onClick={handleLogout}
-                                className="w-5 h-5 bg-gradient-to-b from-[#FF5F56] to-[#E0443E] border border-[#C0403C] rounded-sm flex items-center justify-center hover:from-[#FF7066] hover:to-[#F0544E]"
+                                disabled={isLoggingOut}
+                                className="w-5 h-5 bg-gradient-to-b from-[#FF5F56] to-[#E0443E] border border-[#C0403C] rounded-sm flex items-center justify-center hover:from-[#FF7066] hover:to-[#F0544E] disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Schließen und Ausloggen"
                             >
                                 <span className="text-white text-[10px] font-bold">×</span>
                             </button>
@@ -139,23 +193,44 @@ export function ChatPage() {
                                             </span>
                                         </div>
                                     ))}
+                                    {onlineUsers.length === 0 && (
+                                        <div className="text-xs text-gray-500 italic">
+                                            Keine User online
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
                             {/* Action Buttons */}
                             <button
                                 onClick={handleLogout}
-                                className="w-full px-3 py-2 bg-gradient-to-b from-white to-[#ECE9D8] border border-[#003C74] rounded text-xs hover:from-[#E5F3FF] hover:to-[#C3E0FF] transition-colors flex items-center justify-center gap-2"
+                                disabled={isLoggingOut}
+                                className="w-full px-3 py-2 bg-gradient-to-b from-white to-[#ECE9D8] border border-[#003C74] rounded text-xs hover:from-[#E5F3FF] hover:to-[#C3E0FF] transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                🚪 Logout
+                                {isLoggingOut ? '⏳ Logout...' : 'Logout'}
                             </button>
 
                             <button
                                 onClick={handleInvite}
                                 className="w-full px-3 py-2 bg-gradient-to-b from-white to-[#ECE9D8] border border-[#003C74] rounded text-xs hover:from-[#E5F3FF] hover:to-[#C3E0FF] transition-colors flex items-center justify-center gap-2"
                             >
-                                ✉️ Freund einladen
+                                <b>Invite Friend</b>
                             </button>
+
+                            <button
+                                onClick={handleInvite}
+                                className="w-full px-3 py-2 bg-gradient-to-b from-white to-[#ECE9D8] border border-[#003C74] rounded text-xs hover:from-[#E5F3FF] hover:to-[#C3E0FF] transition-colors flex items-center justify-center gap-2"
+                            >
+                                Settings
+                            </button>
+
+                            {/* Debug Info - nur in Entwicklung */}
+                            {import.meta.env.DEV && (
+                                <div className="text-[10px] text-gray-500 p-2 border-t">
+                                    User: {currentUser?.email || 'Anonym'}<br/>
+                                    UID: {currentUser?.uid?.slice(0, 15)}...
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

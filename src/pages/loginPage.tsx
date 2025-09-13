@@ -52,14 +52,14 @@ export function LoginPage() {
             <div className="bg-white rounded-lg shadow-2xl p-8 max-w-md w-full">
                 {/* MSN Logo */}
                 <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-[#00BCF2] via-[#0078D7] to-[#0054E3] rounded-full flex items-center justify-center shadow-lg">
-                    <span className="text-white font-bold text-3xl">MSN</span>
+                    <span className="text-white font-bold text-2xl"><center>almost<br/> MSN</center></span>
                 </div>
 
                 <h1 className="text-3xl font-bold text-[#0054E3] text-center mb-2">
                     Alles Bene Chat
                 </h1>
                 <p className="text-gray-600 text-sm text-center mb-8">
-                    Nostalgie trifft Moderne - Wie in den guten alten Zeiten 🎉
+                    Chatten wie früher - nur modern!
                 </p>
 
                 <div className="space-y-3">
@@ -98,8 +98,8 @@ export function LoginPage() {
                 </div>
 
                 <p className="text-xs text-gray-500 text-center mt-8">
-                    © 2024 Alles Bene Chat - Modul 306<br/>
-                    <span className="text-[10px]">Retro-Chatraum im Stil der 2000er</span>
+                     Alles Bene Chat <br/> © 2025 - Imad Chatila + Ricardo Santos Lopez + Mathias Bäumli<br/>
+                    <span className="text-[10px]">Der Retro Chatraum für alle Benedict Nerds</span>
                 </p>
             </div>
         </section>

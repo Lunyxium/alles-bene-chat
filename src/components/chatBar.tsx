@@ -21,16 +21,57 @@ export function ChatBar() {
     const [showEmojis, setShowEmojis] = useState(false)
     const inputRef = useRef<HTMLInputElement>(null)
 
-    // Sound effects (MSN style)
-    const messageSound = useRef(new Howl({
-        src: ['data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp'],
-        volume: 0.3
-    }))
+    // Sound effects (MSN style) - Vereinfacht oder mit korrekten Base64 Strings
+    // Option 1: Verwende Web Audio API direkt für simple Töne
+    const playMessageSound = () => {
+        try {
+            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+            const oscillator = audioContext.createOscillator()
+            const gainNode = audioContext.createGain()
 
-    const nudgeSound = useRef(new Howl({
-        src: ['data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp'],
-        volume: 0.5
-    }))
+            oscillator.connect(gainNode)
+            gainNode.connect(audioContext.destination)
+
+            oscillator.frequency.value = 800 // Frequenz in Hz
+            oscillator.type = 'sine'
+
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2)
+
+            oscillator.start(audioContext.currentTime)
+            oscillator.stop(audioContext.currentTime + 0.2)
+        } catch (error) {
+            console.log('Sound playback failed:', error)
+        }
+    }
+
+    const playNudgeSound = () => {
+        try {
+            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+
+            // Erstelle zwei Oszillatoren für einen "Nudge" Sound
+            for (let i = 0; i < 2; i++) {
+                setTimeout(() => {
+                    const oscillator = audioContext.createOscillator()
+                    const gainNode = audioContext.createGain()
+
+                    oscillator.connect(gainNode)
+                    gainNode.connect(audioContext.destination)
+
+                    oscillator.frequency.value = 600 + (i * 200) // Verschiedene Frequenzen
+                    oscillator.type = 'sine'
+
+                    gainNode.gain.setValueAtTime(0.2, audioContext.currentTime)
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1)
+
+                    oscillator.start(audioContext.currentTime)
+                    oscillator.stop(audioContext.currentTime + 0.1)
+                }, i * 100)
+            }
+        } catch (error) {
+            console.log('Nudge sound playback failed:', error)
+        }
+    }
 
     const onSend = form.handleSubmit(async ({ text }) => {
         if (!auth.currentUser) return
@@ -48,7 +89,7 @@ export function ChatBar() {
         })
 
         form.reset()
-        messageSound.current.play()
+        playMessageSound() // Verwende die neue Funktion
     })
 
     const sendNudge = async () => {
@@ -66,14 +107,14 @@ export function ChatBar() {
             type: 'nudge'
         })
 
-        // Shake animation
-        const chatWindow = document.querySelector('.bg-\\[\\#ECE9D8\\]')
-        if (chatWindow) {
-            chatWindow.classList.add('animate-pulse')
-            setTimeout(() => chatWindow.classList.remove('animate-pulse'), 500)
-        }
+        // Shake animation für das Chat-Fenster
+        const chatWindows = document.querySelectorAll('.bg-white.border.border-\\[\\#7A96DF\\]')
+        chatWindows.forEach(window => {
+            window.classList.add('animate-pulse')
+            setTimeout(() => window.classList.remove('animate-pulse'), 500)
+        })
 
-        // nudgeSound.current.play() - disabled for now
+        playNudgeSound() // Verwende die neue Funktion
     }
 
     const addEmoji = (emoji: string) => {
