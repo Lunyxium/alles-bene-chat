@@ -61,26 +61,47 @@ export function ChatBoard() {
     }, [])
 
     return (
-        <div className="bg-white border border-[#7A96DF] rounded overflow-hidden h-[450px] flex flex-col">
+        <div
+            data-chat-window
+            className="flex h-[460px] flex-col overflow-hidden bg-gradient-to-b from-[#f7faff] to-[#eef3ff]"
+        >
             {/* Chat Header */}
-            <div className="bg-gradient-to-b from-[#F5F5F5] to-[#E8E8E8] px-3 py-1 border-b border-[#7A96DF]">
-                <span className="text-xs text-[#0054E3] font-semibold">Chat-Verlauf</span>
+            <div className="bg-gradient-to-r from-[#eaf1ff] via-[#dfe9ff] to-[#eaf1ff] px-4 py-3 border-b border-[#c7d9ff] flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full border border-[#9eb8ff] bg-white/80 flex items-center justify-center text-[#0a4bdd] text-sm">
+                        💬
+                    </div>
+                    <div className="leading-tight">
+                        <p className="text-[11px] uppercase tracking-[0.3em] text-[#6c83ca]">Chat-Verlauf</p>
+                        <span className="text-sm font-semibold text-[#0a4bdd]" style={{ fontFamily: 'Trebuchet MS, Tahoma, sans-serif' }}>
+                            Globaler Nostalgie-Channel
+                        </span>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2 text-[11px] text-[#5b6ea5]">
+                    <span className="inline-flex items-center gap-1">
+                        <span className="w-2 h-2 bg-[#7FBA00] rounded-full" />
+                        Live
+                    </span>
+                    <span className="h-4 w-px bg-[#c7d9ff]" />
+                    <span>{messages.length} Messages</span>
+                </div>
             </div>
 
             {/* Messages Area */}
             <div
                 ref={chatContainerRef}
-                className="flex-1 overflow-y-auto p-3 space-y-2 bg-white"
+                className="flex-1 overflow-y-auto px-5 py-4 space-y-2"
                 style={{
-                    backgroundImage: 'linear-gradient(0deg, transparent 24%, rgba(122, 150, 223, 0.05) 25%, rgba(122, 150, 223, 0.05) 26%, transparent 27%, transparent 74%, rgba(122, 150, 223, 0.05) 75%, rgba(122, 150, 223, 0.05) 76%, transparent 77%, transparent)',
-                    backgroundSize: '50px 50px'
+                    backgroundImage: 'linear-gradient(135deg, rgba(122,150,223,0.06) 25%, transparent 25%, transparent 50%, rgba(122,150,223,0.06) 50%, rgba(122,150,223,0.06) 75%, transparent 75%, transparent)',
+                    backgroundSize: '40px 40px'
                 }}
             >
                 {messages.length === 0 ? (
-                    <div className="text-center text-gray-500 text-sm mt-8">
-                        <div className="mb-2">📭</div>
-                        <div>Noch keine Nachrichten vorhanden.</div>
-                        <div className="text-xs mt-1">Sei der Erste und sage Hallo! 👋</div>
+                    <div className="text-center text-[#4b5f9b] text-sm mt-10">
+                        <div className="mb-3 text-xl">📭</div>
+                        <div className="font-semibold">Noch keine Nachrichten vorhanden.</div>
+                        <div className="text-xs mt-1 text-[#6c83ca]">Sei der Erste und sage Hallo! 👋</div>
                     </div>
                 ) : (
                     messages.map(msg => <ChatBubble key={msg.id} msg={msg} />)
@@ -88,9 +109,9 @@ export function ChatBoard() {
                 <div ref={messagesEndRef} />
             </div>
 
-            {/* Typing Indicator (optional) */}
-            <div className="px-3 py-1 border-t border-gray-100 bg-gray-50 min-h-[20px]">
-                {/* Could add typing indicator here */}
+            {/* Typing Indicator / Status */}
+            <div className="px-4 py-2 bg-gradient-to-r from-[#eaf1ff] to-[#dfe9ff] border-t border-[#c7d9ff] text-[11px] text-[#5b6ea5]">
+                Tippe eine Nachricht oder sende einen Stupser ✨
             </div>
         </div>
     )

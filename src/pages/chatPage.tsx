@@ -1,7 +1,7 @@
 import { ChatBoard, ChatBar } from '@/components'
 import { useState, useEffect } from 'react'
 import { auth, db } from '@/lib/firebase'
-import { collection, onSnapshot, query, where, doc, setDoc, updateDoc, serverTimestamp, deleteDoc } from 'firebase/firestore'
+import { collection, onSnapshot, query, where, doc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { useNavigate } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
 
@@ -130,149 +130,193 @@ export function ChatPage() {
     }
 
     return (
-        <section className="min-h-screen bg-gradient-to-b from-[#5c7cfa] to-[#3864f4] p-4">
-            <div className="max-w-7xl mx-auto">
-                {/* MSN Window */}
-                <div className="bg-[#ECE9D8] rounded-t-lg shadow-2xl border-2 border-[#0054E3] border-b-0">
-                    {/* MSN Header Bar */}
-                    <div className="bg-gradient-to-b from-[#0054E3] to-[#0046C7] px-3 py-1.5 flex items-center justify-between rounded-t-md">
-                        <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 bg-white rounded-full flex items-center justify-center">
-                                <span className="text-[10px]">💬</span>
-                            </div>
-                            <span className="text-white text-sm font-bold">
-                                Alles Bene Chat - Nostalgie Room
-                            </span>
-                        </div>
-                        <div className="flex gap-1">
-                            <button
-                                className="w-5 h-5 bg-gradient-to-b from-white to-[#ECE9D8] border border-[#003C74] rounded-sm flex items-center justify-center hover:from-[#E5F3FF] hover:to-[#C3E0FF]"
-                                title="Minimieren"
-                            >
-                                <span className="text-[10px] font-bold mt-[-4px]">_</span>
-                            </button>
-                            <button
-                                className="w-5 h-5 bg-gradient-to-b from-white to-[#ECE9D8] border border-[#003C74] rounded-sm flex items-center justify-center hover:from-[#E5F3FF] hover:to-[#C3E0FF]"
-                                title="Maximieren"
-                            >
-                                <span className="text-[10px] font-bold">□</span>
-                            </button>
-                            <button
-                                onClick={handleLogout}
-                                disabled={isLoggingOut}
-                                className="w-5 h-5 bg-gradient-to-b from-[#FF5F56] to-[#E0443E] border border-[#C0403C] rounded-sm flex items-center justify-center hover:from-[#FF7066] hover:to-[#F0544E] disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="Schließen und Ausloggen"
-                            >
-                                <span className="text-white text-[10px] font-bold">×</span>
-                            </button>
-                        </div>
-                    </div>
+        <section
+            className="relative min-h-screen bg-gradient-to-br from-[#9ecdfb] via-[#c2dcff] to-[#f1f6ff] flex items-center justify-center overflow-hidden px-4 py-10"
+            style={{ fontFamily: 'Tahoma, Verdana, sans-serif' }}
+        >
+            <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute -top-24 -left-24 w-[380px] h-[380px] bg-[radial-gradient(circle,#ffffff75,transparent_70%)] blur-2xl" />
+                <div className="absolute top-20 right-10 w-[320px] h-[320px] bg-[radial-gradient(circle,#7fa6ff4d,transparent_70%)] blur-2xl" />
+                <div className="absolute bottom-[-160px] left-1/3 w-[420px] h-[420px] bg-[radial-gradient(circle,#c7d9ff80,transparent_70%)] blur-3xl" />
+            </div>
 
-                    {/* Main Content Area */}
-                    <div className="flex gap-3 p-3">
-                        {/* Chat Area */}
-                        <div className="flex-1 flex flex-col gap-2">
-                            <ChatBoard />
-                            <ChatBar />
-                        </div>
-
-                        {/* Right Sidebar - User List */}
-                        <div className="w-56 flex flex-col gap-2">
-                            {/* Online Users */}
-                            <div className="bg-white border border-[#7A96DF] rounded p-3">
-                                <div className="text-xs font-bold text-[#0054E3] mb-3 flex items-center gap-1">
-                                    <span className="w-2 h-2 bg-[#7FBA00] rounded-full animate-pulse"></span>
-                                    Online ({onlineUsers.length})
+            <div className="relative w-full max-w-6xl">
+                <div className="relative rounded-[20px] border border-[#7fa6f7] bg-white/90 backdrop-blur-sm shadow-[0_20px_45px_rgba(40,94,173,0.28)] overflow-hidden">
+                    <div className="relative bg-[#f9fbff]/95">
+                            {/* Header */}
+                            <div className="bg-gradient-to-r from-[#0a4bdd] via-[#2a63f1] to-[#0a4bdd] px-5 py-3 text-white flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-full border border-white/40 bg-white/20 backdrop-blur-sm flex items-center justify-center text-lg">
+                                        💬
+                                    </div>
+                                    <div className="leading-tight">
+                                        <p className="text-xs uppercase tracking-[0.3em] text-[#cfe0ff]">Retro Room</p>
+                                        <h1 className="text-lg font-semibold" style={{ fontFamily: 'Trebuchet MS, Tahoma, sans-serif' }}>
+                                            Alles Bene Messenger
+                                        </h1>
+                                    </div>
                                 </div>
-                                <div className="space-y-1 max-h-64 overflow-y-auto">
-                                    {onlineUsers.map(user => (
-                                        <div
-                                            key={user.id}
-                                            className="flex items-center gap-2 p-1.5 rounded hover:bg-[#E5F3FF] cursor-pointer transition-colors"
-                                        >
-                                            <div className="w-2 h-2 bg-[#7FBA00] rounded-full"></div>
-                                            <span className="text-xs truncate">
-                                                {user.displayName}
-                                                {user.id === currentUser?.uid && ' (Du)'}
-                                            </span>
-                                        </div>
-                                    ))}
-                                    {onlineUsers.length === 0 && (
-                                        <div className="text-xs text-gray-500 italic">
-                                            Keine User online
-                                        </div>
-                                    )}
+                                <div className="hidden md:flex items-center gap-2 text-xs text-[#d7e6ff]">
+                                    <span className="inline-flex items-center gap-1">
+                                        <span className="w-2 h-2 bg-[#7FBA00] rounded-full" />
+                                        {onlineUsers.length} online
+                                    </span>
+                                    <span className="h-4 w-px bg-white/40" />
+                                    <span>Globale Lobby</span>
                                 </div>
                             </div>
 
-                            {/* Action Buttons */}
-                            <button
-                                onClick={handleLogout}
-                                disabled={isLoggingOut}
-                                className="w-full px-3 py-2 bg-gradient-to-b from-white to-[#ECE9D8] border border-[#003C74] rounded text-xs hover:from-[#E5F3FF] hover:to-[#C3E0FF] transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {isLoggingOut ? '⏳ Logout...' : 'Logout'}
-                            </button>
+                            <div className="px-5 py-5 md:px-6 md:py-6 md:grid md:grid-cols-[minmax(0,1fr)_260px] md:gap-6 md:items-start">
+                                <div className="flex flex-col gap-4">
+                                    <div className="bg-white rounded-[16px] border border-[#7a96df] shadow-[0_12px_30px_rgba(58,92,173,0.15)] overflow-hidden">
+                                        <ChatBoard />
+                                    </div>
+                                    <div className="bg-white rounded-[14px] border border-[#7a96df] shadow-[0_10px_20px_rgba(58,92,173,0.12)] overflow-visible">
+                                        <ChatBar />
+                                    </div>
 
-                            <button
-                                onClick={handleInvite}
-                                className="w-full px-3 py-2 bg-gradient-to-b from-white to-[#ECE9D8] border border-[#003C74] rounded text-xs hover:from-[#E5F3FF] hover:to-[#C3E0FF] transition-colors flex items-center justify-center gap-2"
-                            >
-                                <b>Invite Friend</b>
-                            </button>
-
-                            <button
-                                onClick={handleOpenSettings}
-                                className="w-full px-3 py-2 bg-gradient-to-b from-white to-[#ECE9D8] border border-[#003C74] rounded text-xs hover:from-[#E5F3FF] hover:to-[#C3E0FF] transition-colors flex items-center justify-center gap-2"
-                            >
-                                Settings
-                            </button>
-
-                            {/* Debug Info - nur in Entwicklung */}
-                            {import.meta.env.DEV && (
-                                <div className="text-[10px] text-gray-500 p-2 border-t">
-                                    User: {currentUser?.email || 'Anonym'}<br/>
-                                    UID: {currentUser?.uid?.slice(0, 15)}...
+                                    {/* Online buddies for mobile */}
+                                    <div className="md:hidden mt-2">
+                                        <h3 className="text-xs font-bold text-[#0a4bdd] uppercase tracking-widest mb-3">Online ({onlineUsers.length})</h3>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {onlineUsers.map(user => (
+                                                <div
+                                                    key={user.id}
+                                                    className="flex items-center gap-2 rounded-lg border border-[#c7d9ff] bg-[#f5f8ff] px-3 py-2 text-xs text-[#0a4bdd]"
+                                                >
+                                                    <span className="w-2 h-2 bg-[#7FBA00] rounded-full" />
+                                                    <span className="truncate">
+                                                        {user.displayName}
+                                                        {user.id === currentUser?.uid && ' (Du)'}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                            {onlineUsers.length === 0 && (
+                                                <div className="text-xs text-[#5c6fb9] italic">
+                                                    Keine User online
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="mt-4 grid grid-cols-1 gap-2">
+                                            <button
+                                                onClick={handleInvite}
+                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px]"
+                                            >
+                                                📣 Freund einladen
+                                            </button>
+                                            <button
+                                                onClick={handleOpenSettings}
+                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px]"
+                                            >
+                                                ⚙️ Einstellungen
+                                            </button>
+                                            <button
+                                                onClick={handleLogout}
+                                                disabled={isLoggingOut}
+                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed"
+                                            >
+                                                {isLoggingOut ? '⏳ Wird abgemeldet...' : 'Abmelden'}
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
-                            )}
+
+                                {/* Desktop Sidebar for Online Users */}
+                                <aside className="hidden md:block">
+                                    <div className="rounded-[16px] border border-[#7a96df] bg-white/95 shadow-[0_12px_28px_rgba(58,92,173,0.18)] overflow-hidden flex flex-col">
+                                        <div className="bg-gradient-to-r from-[#eaf1ff] to-[#dfe9ff] px-4 py-3 border-b border-[#c7d9ff]">
+                                            <div className="flex items-center gap-2 text-[#0a4bdd] text-sm font-semibold">
+                                                <span className="w-2 h-2 bg-[#7FBA00] rounded-full" />
+                                                Online ({onlineUsers.length})
+                                            </div>
+                                        </div>
+                                        <div className="max-h-56 overflow-y-auto p-3 space-y-1 text-xs text-[#0f3fae] flex-1">
+                                            {onlineUsers.map(user => (
+                                                <div
+                                                    key={user.id}
+                                                    className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-[#e5f3ff] transition-colors"
+                                                >
+                                                    <span className="w-2 h-2 bg-[#7FBA00] rounded-full" />
+                                                    <span className="truncate">
+                                                        {user.displayName}
+                                                        {user.id === currentUser?.uid && ' (Du)'}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                            {onlineUsers.length === 0 && (
+                                                <div className="italic text-[#6075b7] px-2 py-1">
+                                                    Keine User online
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="border-t border-[#c7d9ff] bg-[#f2f6ff] p-3 space-y-2 text-xs">
+                                            <button
+                                                onClick={handleInvite}
+                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px]"
+                                            >
+                                                📣 Freund einladen
+                                            </button>
+                                            <button
+                                                onClick={handleOpenSettings}
+                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px]"
+                                            >
+                                                ⚙️ Einstellungen
+                                            </button>
+                                            <button
+                                                onClick={handleLogout}
+                                                disabled={isLoggingOut}
+                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed"
+                                            >
+                                                {isLoggingOut ? '⏳ Wird abgemeldet...' : 'Abmelden'}
+                                            </button>
+                                        </div>
+                                        {import.meta.env.DEV && (
+                                            <div className="border-t border-[#c7d9ff] bg-white/90 px-3 py-2 text-[10px] text-[#5c6fb9]">
+                                                User: {currentUser?.email || 'Anonym'}<br />
+                                                UID: {currentUser?.uid?.slice(0, 15)}...
+                                            </div>
+                                        )}
+                                    </div>
+                                </aside>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
             {/* Share Modal */}
             {showShareModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg p-6 max-w-md w-full">
-                        <h3 className="text-xl font-bold text-[#0054E3] mb-4">
+                <div className="fixed inset-0 bg-[#1a225040]/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="relative w-full max-w-md rounded-2xl border border-[#7fa6f7] bg-white/95 shadow-[0_18px_40px_rgba(40,94,173,0.25)] p-6">
+                        <div className="absolute -top-8 right-8 w-24 h-24 bg-[radial-gradient(circle,#7fa6ff4d,transparent_70%)] blur-xl" />
+                        <h3 className="text-lg font-semibold text-[#0a4bdd]" style={{ fontFamily: 'Trebuchet MS, Tahoma, sans-serif' }}>
                             Freund einladen
                         </h3>
-                        <p className="text-sm text-gray-600 mb-4">
-                            Teile diesen Link mit deinen Freunden:
+                        <p className="mt-2 text-sm text-[#4b5f9b]">
+                            Teile diesen magischen Link mit deinen MSN-Buddies:
                         </p>
                         <input
                             type="text"
                             value={window.location.origin}
                             readOnly
-                            className="w-full px-3 py-2 border border-[#7A96DF] rounded text-sm mb-4 bg-gray-50"
+                            className="mt-4 w-full rounded-md border border-[#7a96df] bg-[#f5f8ff] px-3 py-2 text-sm text-[#0a4bdd] focus:outline-none focus:ring-2 focus:ring-[#b7c8ff]"
                             onClick={(e) => e.currentTarget.select()}
                         />
-                        <div className="flex gap-2">
+                        <div className="mt-4 grid grid-cols-3 gap-2 text-sm">
                             <button
                                 onClick={copyLink}
-                                className="flex-1 px-3 py-2 bg-gradient-to-b from-white to-[#ECE9D8] border border-[#003C74] rounded text-sm hover:from-[#E5F3FF] hover:to-[#C3E0FF] transition-colors"
+                                className="rounded-md border border-[#7a96df] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-2 text-[#0a4bdd] font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-transform hover:-translate-y-[2px]"
                             >
                                 📋 Kopieren
                             </button>
                             <button
                                 onClick={shareWhatsApp}
-                                className="flex-1 px-3 py-2 bg-gradient-to-b from-white to-[#ECE9D8] border border-[#003C74] rounded text-sm hover:from-[#E5F3FF] hover:to-[#C3E0FF] transition-colors"
+                                className="rounded-md border border-[#7a96df] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-2 text-[#0a4bdd] font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-transform hover:-translate-y-[2px]"
                             >
                                 💬 WhatsApp
                             </button>
                             <button
                                 onClick={() => setShowShareModal(false)}
-                                className="flex-1 px-3 py-2 bg-gradient-to-b from-white to-[#ECE9D8] border border-[#003C74] rounded text-sm hover:from-[#E5F3FF] hover:to-[#C3E0FF] transition-colors"
+                                className="rounded-md border border-[#7a96df] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-2 text-[#0a4bdd] font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-transform hover:-translate-y-[2px]"
                             >
                                 Schließen
                             </button>

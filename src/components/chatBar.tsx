@@ -4,7 +4,6 @@ import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { db, auth } from '@/lib/firebase'
 import { useState, useRef, useEffect } from 'react'
-import { Howl } from 'howler'
 
 const schema = z.object({ text: z.string().min(1).max(500) })
 
@@ -108,7 +107,7 @@ export function ChatBar() {
         })
 
         // Shake animation für das Chat-Fenster
-        const chatWindows = document.querySelectorAll('.bg-white.border.border-\\[\\#7A96DF\\]')
+        const chatWindows = document.querySelectorAll('[data-chat-window]')
         chatWindows.forEach(window => {
             window.classList.add('animate-pulse')
             setTimeout(() => window.classList.remove('animate-pulse'), 500)
@@ -139,17 +138,17 @@ export function ChatBar() {
 
     return (
         <FormProvider {...form}>
-            <div className="relative">
+            <div className="relative z-10" data-chat-bar>
                 {/* Emoji Picker */}
                 {showEmojis && (
-                    <div className="emoji-container absolute bottom-12 left-2 bg-white border border-[#7A96DF] rounded-md shadow-lg p-2 z-50">
-                        <div className="grid grid-cols-8 gap-1">
+                    <div className="emoji-container absolute bottom-14 left-2 bg-white/95 backdrop-blur-sm border border-[#9eb8ff] rounded-lg shadow-[0_10px_25px_rgba(58,92,173,0.15)] p-3 z-50">
+                        <div className="grid grid-cols-8 gap-1.5">
                             {emojis.map((emoji, idx) => (
                                 <button
                                     key={idx}
                                     type="button"
                                     onClick={() => addEmoji(emoji)}
-                                    className="w-8 h-8 hover:bg-[#E5F3FF] rounded flex items-center justify-center text-lg transition-colors"
+                                    className="w-8 h-8 hover:bg-[#e5f3ff] rounded-md flex items-center justify-center text-lg transition-colors"
                                 >
                                     {emoji}
                                 </button>
@@ -159,52 +158,57 @@ export function ChatBar() {
                 )}
 
                 {/* Input Bar */}
-                <form onSubmit={onSend} className="flex gap-1 p-2 bg-[#F0EFE7] border-t border-[#7A96DF]">
-                    {/* Emoji Button */}
-                    <button
-                        type="button"
-                        onClick={(e) => {
-                            e.stopPropagation()
-                            setShowEmojis(!showEmojis)
-                        }}
-                        className="px-3 py-1.5 bg-gradient-to-b from-white to-[#ECE9D8] border border-[#003C74] rounded text-sm hover:from-[#E5F3FF] hover:to-[#C3E0FF] transition-colors"
-                        title="Emojis"
+                <div className="rounded-[12px] overflow-hidden border border-transparent bg-white/95 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]">
+                    <form
+                        onSubmit={onSend}
+                        className="flex gap-2 p-3 bg-gradient-to-r from-[#eef3ff] via-[#e6eeff] to-[#eef3ff]"
                     >
-                        😊
-                    </button>
+                        {/* Emoji Button */}
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                setShowEmojis(!showEmojis)
+                            }}
+                            className="px-3 py-2 bg-gradient-to-b from-white to-[#e6eeff] border border-[#9eb8ff] rounded-md text-sm text-[#0a4bdd] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-transform hover:-translate-y-[1px] hover:from-white hover:to-[#dbe5ff]"
+                            title="Emojis"
+                        >
+                            😊
+                        </button>
 
-                    {/* Text Input */}
-                    <input
-                        {...form.register('text')}
-                        ref={inputRef}
-                        className="flex-1 px-3 py-1.5 border border-[#7A96DF] rounded text-sm focus:outline-none focus:border-[#0054E3] focus:ring-1 focus:ring-[#E5F3FF]"
-                        placeholder="Nachricht eingeben..."
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault()
-                                onSend()
-                            }
-                        }}
-                    />
+                        {/* Text Input */}
+                        <input
+                            {...form.register('text')}
+                            ref={inputRef}
+                            className="flex-1 rounded-md border border-[#9eb8ff] bg-white/95 px-3 py-2 text-sm text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] focus:outline-none focus:border-[#0a4bdd] focus:ring-2 focus:ring-[#c4d4ff] placeholder:text-[#6c83ca]"
+                            placeholder="Nachricht eingeben..."
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault()
+                                    onSend()
+                                }
+                            }}
+                        />
 
-                    {/* Send Button */}
-                    <button
-                        type="submit"
-                        className="px-4 py-1.5 bg-gradient-to-b from-white to-[#ECE9D8] border border-[#003C74] rounded text-sm hover:from-[#E5F3FF] hover:to-[#C3E0FF] transition-colors font-semibold"
-                    >
-                        Senden
-                    </button>
+                        {/* Send Button */}
+                        <button
+                            type="submit"
+                            className="px-4 py-2 bg-gradient-to-b from-white to-[#e6eeff] border border-[#9eb8ff] rounded-md text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] hover:from-white hover:to-[#dbe5ff]"
+                        >
+                            Senden
+                        </button>
 
-                    {/* Nudge Button */}
-                    <button
-                        type="button"
-                        onClick={sendNudge}
-                        className="px-3 py-1.5 bg-gradient-to-b from-white to-[#ECE9D8] border border-[#003C74] rounded text-sm hover:from-[#E5F3FF] hover:to-[#C3E0FF] transition-colors"
-                        title="Stupser senden"
-                    >
-                        👋
-                    </button>
-                </form>
+                        {/* Nudge Button */}
+                        <button
+                            type="button"
+                            onClick={sendNudge}
+                            className="px-3 py-2 bg-gradient-to-b from-white to-[#e6eeff] border border-[#9eb8ff] rounded-md text-sm text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] hover:from-white hover:to-[#dbe5ff]"
+                            title="Stupser senden"
+                        >
+                            👋
+                        </button>
+                    </form>
+                </div>
             </div>
         </FormProvider>
     )
