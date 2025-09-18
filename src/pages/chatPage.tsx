@@ -102,6 +102,10 @@ export function ChatPage() {
         setShowShareModal(true)
     }
 
+    const handleOpenSettings = () => {
+        navigate('/profile')
+    }
+
     const copyLink = () => {
         navigator.clipboard.writeText(window.location.origin)
             .then(() => {
@@ -218,7 +222,7 @@ export function ChatPage() {
                             </button>
 
                             <button
-                                onClick={handleInvite}
+                                onClick={handleOpenSettings}
                                 className="w-full px-3 py-2 bg-gradient-to-b from-white to-[#ECE9D8] border border-[#003C74] rounded text-xs hover:from-[#E5F3FF] hover:to-[#C3E0FF] transition-colors flex items-center justify-center gap-2"
                             >
                                 Settings
