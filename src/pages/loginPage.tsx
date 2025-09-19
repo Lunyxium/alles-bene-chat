@@ -94,7 +94,7 @@ export function LoginPage() {
                             <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-lg font-semibold">
                                 🔔
                             </span>
-                            <p>Benachrichtigungen im klassischen Stil – inklusive imaginärem "Wink".</p>
+                            <p>Benachrichtigungen im klassischen Stil – inklusive imaginärem &quot;Wink&quot;.</p>
                         </div>
                         <div className="flex items-center gap-3">
                             <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-lg font-semibold">
@@ -154,11 +154,11 @@ export function LoginPage() {
                                         </svg>
                                     </span>
                                     <span>
-                                        <span className="block text-sm font-semibold">Mit Microsoft anmelden</span>
-                                        <span className="block text-xs text-[#6075b7]">Empfohlen – nahezul original MSN Flair</span>
+                                        <span className="block text-sm font-semibold line-through">Mit Microsoft anmelden</span>
+                                        <span className="block text-xs text-[#6075b7]">Aktuell nicht verfügbar</span>
                                     </span>
                                 </span>
-                                <span className="text-xs text-[#6075b7]">Weiter ›</span>
+                                <span className="text-xs text-[#6075b7]">Aktuell nicht verfügbar ›</span>
                             </button>
 
                             <button
