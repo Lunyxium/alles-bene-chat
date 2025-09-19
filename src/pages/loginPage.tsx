@@ -107,26 +107,10 @@ export function LoginPage() {
                     <p className="mt-12 text-xs text-[#d7e6ff]/80" style={{ fontFamily: 'Tahoma, Verdana, sans-serif' }}>
                         Alles Bene Chat © 2025 · Imad Chatila · Ricardo Santos Lopes · Mathias Bäumli
                         <br />
-                        Der Retro-Chatraum für alle Benedict-Nerds
                     </p>
                 </div>
 
-                <div className="bg-[#edf2ff]/90">
-                    <div className="flex items-center justify-between gap-4 bg-gradient-to-r from-[#f7fbff] via-[#e7efff] to-[#d7e6ff] px-5 py-3 border-b border-[#b9ccff]">
-                        <div className="flex items-center gap-2">
-                            <span className="flex gap-1">
-                                <span className="h-3 w-3 rounded-full bg-[#ff5f57] shadow-[inset_0_0_1px_rgba(0,0,0,0.2)]" />
-                                <span className="h-3 w-3 rounded-full bg-[#fabc3c] shadow-[inset_0_0_1px_rgba(0,0,0,0.2)]" />
-                                <span className="h-3 w-3 rounded-full bg-[#28c840] shadow-[inset_0_0_1px_rgba(0,0,0,0.2)]" />
-                            </span>
-                            <span className="text-xs uppercase tracking-[0.25em] text-[#5b74c8]" style={{ fontFamily: 'Tahoma, Verdana, sans-serif' }}>
-                                Anmeldung
-                            </span>
-                        </div>
-                        <span className="text-[10px] text-[#6e84d8]" style={{ fontFamily: 'Tahoma, Verdana, sans-serif' }}>
-                            Version 8.0 (Alles Bene)
-                        </span>
-                    </div>
+                <div>
 
                     <div className="px-8 py-10 space-y-8">
                         <div className="space-y-2">
