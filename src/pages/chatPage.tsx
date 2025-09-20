@@ -1,4 +1,5 @@
 import { ChatBoard, ChatBar } from '@/components'
+import { SettingsModal } from '@/components/settingsModal'
 import { useState, useEffect } from 'react'
 import { auth, db } from '@/lib/firebase'
 import { collection, onSnapshot, query, where, doc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
@@ -16,17 +17,22 @@ interface OnlineUser {
 export function ChatPage() {
     const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([])
     const [showShareModal, setShowShareModal] = useState(false)
+    const [showSettingsModal, setShowSettingsModal] = useState(false)
     const [isLoggingOut, setIsLoggingOut] = useState(false)
+    const [currentDisplayName, setCurrentDisplayName] = useState('')
     const navigate = useNavigate()
     const currentUser = auth.currentUser
 
     useEffect(() => {
         if (!currentUser) return
 
+        const userDisplayName = currentUser.displayName || currentUser.email?.split('@')[0] || 'Gast_' + currentUser.uid.slice(0, 4)
+        setCurrentDisplayName(userDisplayName)
+
         // Set user online status
         const userRef = doc(db, 'users', currentUser.uid)
         setDoc(userRef, {
-            displayName: currentUser.displayName || currentUser.email?.split('@')[0] || 'Gast_' + currentUser.uid.slice(0, 4),
+            displayName: userDisplayName,
             email: currentUser.email || '',
             isOnline: true,
             lastSeen: serverTimestamp()
@@ -40,6 +46,14 @@ export function ChatPage() {
                 ...doc.data()
             } as OnlineUser))
             setOnlineUsers(users)
+        })
+
+        // Listen to current user changes to update display name
+        const userUnsubscribe = onSnapshot(doc(db, 'users', currentUser.uid), (doc) => {
+            if (doc.exists()) {
+                const userData = doc.data()
+                setCurrentDisplayName(userData.displayName || userDisplayName)
+            }
         })
 
         // Set offline on unmount or page unload
@@ -56,6 +70,7 @@ export function ChatPage() {
             handleBeforeUnload()
             window.removeEventListener('beforeunload', handleBeforeUnload)
             unsubscribe()
+            userUnsubscribe()
         }
     }, [currentUser])
 
@@ -103,7 +118,7 @@ export function ChatPage() {
     }
 
     const handleOpenSettings = () => {
-        navigate('/profile')
+        setShowSettingsModal(true)
     }
 
     const copyLink = () => {
@@ -143,145 +158,145 @@ export function ChatPage() {
             <div className="relative w-full max-w-6xl">
                 <div className="relative rounded-[20px] border border-[#7fa6f7] bg-white/90 backdrop-blur-sm shadow-[0_20px_45px_rgba(40,94,173,0.28)] overflow-hidden">
                     <div className="relative bg-[#f9fbff]/95">
-                            {/* Header */}
-                            <div className="bg-gradient-to-r from-[#0a4bdd] via-[#2a63f1] to-[#0a4bdd] px-5 py-3 text-white flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-9 h-9 rounded-full border border-white/40 bg-white/20 backdrop-blur-sm flex items-center justify-center text-lg">
-                                        💬
-                                    </div>
-                                    <div className="leading-tight">
-                                        <p className="text-xs uppercase tracking-[0.3em] text-[#cfe0ff]">Retro Room</p>
-                                        <h1 className="text-lg font-semibold" style={{ fontFamily: 'Trebuchet MS, Tahoma, sans-serif' }}>
-                                            Alles Bene Messenger
-                                        </h1>
-                                    </div>
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-[#0a4bdd] via-[#2a63f1] to-[#0a4bdd] px-5 py-3 text-white flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-full border border-white/40 bg-white/20 backdrop-blur-sm flex items-center justify-center text-lg">
+                                    💬
                                 </div>
-                                <div className="hidden md:flex items-center gap-2 text-xs text-[#d7e6ff]">
+                                <div className="leading-tight">
+                                    <p className="text-xs uppercase tracking-[0.3em] text-[#cfe0ff]">Retro Room</p>
+                                    <h1 className="text-lg font-semibold" style={{ fontFamily: 'Trebuchet MS, Tahoma, sans-serif' }}>
+                                        Alles Bene Messenger
+                                    </h1>
+                                </div>
+                            </div>
+                            <div className="hidden md:flex items-center gap-2 text-xs text-[#d7e6ff]">
                                     <span className="inline-flex items-center gap-1">
                                         <span className="w-2 h-2 bg-[#7FBA00] rounded-full" />
                                         {onlineUsers.length} online
                                     </span>
-                                    <span className="h-4 w-px bg-white/40" />
-                                    <span>Globale Lobby</span>
-                                </div>
+                                <span className="h-4 w-px bg-white/40" />
+                                <span>Globale Lobby</span>
                             </div>
+                        </div>
 
-                            <div className="px-5 py-5 md:px-6 md:py-6 md:grid md:grid-cols-[minmax(0,1fr)_260px] md:gap-6 md:items-start">
-                                <div className="flex flex-col gap-4">
-                                    <div className="bg-white rounded-[16px] border border-[#7a96df] shadow-[0_12px_30px_rgba(58,92,173,0.15)] overflow-hidden">
-                                        <ChatBoard />
-                                    </div>
-                                    <div className="bg-white rounded-[14px] border border-[#7a96df] shadow-[0_10px_20px_rgba(58,92,173,0.12)] overflow-visible">
-                                        <ChatBar />
-                                    </div>
-
-                                    {/* Online buddies for mobile */}
-                                    <div className="md:hidden mt-2">
-                                        <h3 className="text-xs font-bold text-[#0a4bdd] uppercase tracking-widest mb-3">Online ({onlineUsers.length})</h3>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            {onlineUsers.map(user => (
-                                                <div
-                                                    key={user.id}
-                                                    className="flex items-center gap-2 rounded-lg border border-[#c7d9ff] bg-[#f5f8ff] px-3 py-2 text-xs text-[#0a4bdd]"
-                                                >
-                                                    <span className="w-2 h-2 bg-[#7FBA00] rounded-full" />
-                                                    <span className="truncate">
-                                                        {user.displayName}
-                                                        {user.id === currentUser?.uid && ' (Du)'}
-                                                    </span>
-                                                </div>
-                                            ))}
-                                            {onlineUsers.length === 0 && (
-                                                <div className="text-xs text-[#5c6fb9] italic">
-                                                    Keine User online
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="mt-4 grid grid-cols-1 gap-2">
-                                            <button
-                                                onClick={handleInvite}
-                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px]"
-                                            >
-                                                📣 Freund einladen
-                                            </button>
-                                            <button
-                                                onClick={handleOpenSettings}
-                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px]"
-                                            >
-                                                ⚙️ Einstellungen
-                                            </button>
-                                            <button
-                                                onClick={handleLogout}
-                                                disabled={isLoggingOut}
-                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed"
-                                            >
-                                                {isLoggingOut ? '⏳ Wird abgemeldet...' : 'Abmelden'}
-                                            </button>
-                                        </div>
-                                    </div>
+                        <div className="px-5 py-5 md:px-6 md:py-6 md:grid md:grid-cols-[minmax(0,1fr)_260px] md:gap-6 md:items-start">
+                            <div className="flex flex-col gap-4">
+                                <div className="bg-white rounded-[16px] border border-[#7a96df] shadow-[0_12px_30px_rgba(58,92,173,0.15)] overflow-hidden">
+                                    <ChatBoard />
+                                </div>
+                                <div className="bg-white rounded-[14px] border border-[#7a96df] shadow-[0_10px_20px_rgba(58,92,173,0.12)] overflow-visible">
+                                    <ChatBar />
                                 </div>
 
-                                {/* Desktop Sidebar for Online Users */}
-                                <aside className="hidden md:block">
-                                    <div className="rounded-[16px] border border-[#7a96df] bg-white/95 shadow-[0_12px_28px_rgba(58,92,173,0.18)] overflow-hidden flex flex-col">
-                                        <div className="bg-gradient-to-r from-[#eaf1ff] to-[#dfe9ff] px-4 py-3 border-b border-[#c7d9ff]">
-                                            <div className="flex items-center gap-2 text-[#0a4bdd] text-sm font-semibold">
+                                {/* Online buddies for mobile */}
+                                <div className="md:hidden mt-2">
+                                    <h3 className="text-xs font-bold text-[#0a4bdd] uppercase tracking-widest mb-3">Online ({onlineUsers.length})</h3>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {onlineUsers.map(user => (
+                                            <div
+                                                key={user.id}
+                                                className="flex items-center gap-2 rounded-lg border border-[#c7d9ff] bg-[#f5f8ff] px-3 py-2 text-xs text-[#0a4bdd]"
+                                            >
                                                 <span className="w-2 h-2 bg-[#7FBA00] rounded-full" />
-                                                Online ({onlineUsers.length})
-                                            </div>
-                                        </div>
-                                        <div className="max-h-56 overflow-y-auto p-3 space-y-1 text-xs text-[#0f3fae] flex-1">
-                                            {onlineUsers.map(user => (
-                                                <div
-                                                    key={user.id}
-                                                    className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-[#e5f3ff] transition-colors"
-                                                >
-                                                    <span className="w-2 h-2 bg-[#7FBA00] rounded-full" />
-                                                    <span className="truncate">
+                                                <span className="truncate">
                                                         {user.displayName}
-                                                        {user.id === currentUser?.uid && ' (Du)'}
+                                                    {user.id === currentUser?.uid && ' (Du)'}
                                                     </span>
-                                                </div>
-                                            ))}
-                                            {onlineUsers.length === 0 && (
-                                                <div className="italic text-[#6075b7] px-2 py-1">
-                                                    Keine User online
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="border-t border-[#c7d9ff] bg-[#f2f6ff] p-3 space-y-2 text-xs">
-                                            <button
-                                                onClick={handleInvite}
-                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px]"
-                                            >
-                                                📣 Freund einladen
-                                            </button>
-                                            <button
-                                                onClick={handleOpenSettings}
-                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px]"
-                                            >
-                                                ⚙️ Einstellungen
-                                            </button>
-                                            <button
-                                                onClick={handleLogout}
-                                                disabled={isLoggingOut}
-                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed"
-                                            >
-                                                {isLoggingOut ? '⏳ Wird abgemeldet...' : 'Abmelden'}
-                                            </button>
-                                        </div>
-                                        {import.meta.env.DEV && (
-                                            <div className="border-t border-[#c7d9ff] bg-white/90 px-3 py-2 text-[10px] text-[#5c6fb9]">
-                                                User: {currentUser?.email || 'Anonym'}<br />
-                                                UID: {currentUser?.uid?.slice(0, 15)}...
+                                            </div>
+                                        ))}
+                                        {onlineUsers.length === 0 && (
+                                            <div className="text-xs text-[#5c6fb9] italic">
+                                                Keine User online
                                             </div>
                                         )}
                                     </div>
-                                </aside>
+                                    <div className="mt-4 grid grid-cols-1 gap-2">
+                                        <button
+                                            onClick={handleInvite}
+                                            className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px]"
+                                        >
+                                            📣 Freund einladen
+                                        </button>
+                                        <button
+                                            onClick={handleOpenSettings}
+                                            className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px]"
+                                        >
+                                            ⚙️ Einstellungen
+                                        </button>
+                                        <button
+                                            onClick={handleLogout}
+                                            disabled={isLoggingOut}
+                                            className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed"
+                                        >
+                                            {isLoggingOut ? '⏳ Wird abgemeldet...' : 'Abmelden'}
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
+
+                            {/* Desktop Sidebar for Online Users */}
+                            <aside className="hidden md:block">
+                                <div className="rounded-[16px] border border-[#7a96df] bg-white/95 shadow-[0_12px_28px_rgba(58,92,173,0.18)] overflow-hidden flex flex-col">
+                                    <div className="bg-gradient-to-r from-[#eaf1ff] to-[#dfe9ff] px-4 py-3 border-b border-[#c7d9ff]">
+                                        <div className="flex items-center gap-2 text-[#0a4bdd] text-sm font-semibold">
+                                            <span className="w-2 h-2 bg-[#7FBA00] rounded-full" />
+                                            Online ({onlineUsers.length})
+                                        </div>
+                                    </div>
+                                    <div className="max-h-56 overflow-y-auto p-3 space-y-1 text-xs text-[#0f3fae] flex-1">
+                                        {onlineUsers.map(user => (
+                                            <div
+                                                key={user.id}
+                                                className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-[#e5f3ff] transition-colors"
+                                            >
+                                                <span className="w-2 h-2 bg-[#7FBA00] rounded-full" />
+                                                <span className="truncate">
+                                                        {user.displayName}
+                                                    {user.id === currentUser?.uid && ' (Du)'}
+                                                    </span>
+                                            </div>
+                                        ))}
+                                        {onlineUsers.length === 0 && (
+                                            <div className="italic text-[#6075b7] px-2 py-1">
+                                                Keine User online
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="border-t border-[#c7d9ff] bg-[#f2f6ff] p-3 space-y-2 text-xs">
+                                        <button
+                                            onClick={handleInvite}
+                                            className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px]"
+                                        >
+                                            📣 Freund einladen
+                                        </button>
+                                        <button
+                                            onClick={handleOpenSettings}
+                                            className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px]"
+                                        >
+                                            ⚙️ Einstellungen
+                                        </button>
+                                        <button
+                                            onClick={handleLogout}
+                                            disabled={isLoggingOut}
+                                            className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed"
+                                        >
+                                            {isLoggingOut ? '⏳ Wird abgemeldet...' : 'Abmelden'}
+                                        </button>
+                                    </div>
+                                    {import.meta.env.DEV && (
+                                        <div className="border-t border-[#c7d9ff] bg-white/90 px-3 py-2 text-[10px] text-[#5c6fb9]">
+                                            User: {currentUser?.email || 'Anonym'}<br />
+                                            UID: {currentUser?.uid?.slice(0, 15)}...
+                                        </div>
+                                    )}
+                                </div>
+                            </aside>
                         </div>
                     </div>
                 </div>
+            </div>
 
             {/* Share Modal */}
             {showShareModal && (
@@ -324,6 +339,13 @@ export function ChatPage() {
                     </div>
                 </div>
             )}
+
+            {/* Settings Modal */}
+            <SettingsModal
+                isOpen={showSettingsModal}
+                onClose={() => setShowSettingsModal(false)}
+                currentDisplayName={currentDisplayName}
+            />
         </section>
     )
 }
