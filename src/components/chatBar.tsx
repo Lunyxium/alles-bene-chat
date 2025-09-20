@@ -19,6 +19,7 @@ export function ChatBar() {
     })
     const [showEmojis, setShowEmojis] = useState(false)
     const inputRef = useRef<HTMLInputElement>(null)
+    const { ref: registerTextRef, ...textField } = form.register('text')
 
     // Sound effects (MSN style) - Vereinfacht oder mit korrekten Base64 Strings
     // Option 1: Verwende Web Audio API direkt für simple Töne
@@ -178,8 +179,11 @@ export function ChatBar() {
 
                         {/* Text Input */}
                         <input
-                            {...form.register('text')}
-                            ref={inputRef}
+                            {...textField}
+                            ref={(element) => {
+                                registerTextRef(element)
+                                inputRef.current = element ?? null
+                            }}
                             className="flex-1 rounded-md border border-[#9eb8ff] bg-white/95 px-3 py-2 text-sm text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] focus:outline-none focus:border-[#0a4bdd] focus:ring-2 focus:ring-[#c4d4ff] placeholder:text-[#6c83ca]"
                             placeholder="Nachricht eingeben..."
                             onKeyDown={(e) => {
