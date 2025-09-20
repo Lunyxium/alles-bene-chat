@@ -1,36 +1,165 @@
 import { ChatBoard, ChatBar } from '@/components'
 import { SettingsModal } from '@/components/settingsModal'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { auth, db } from '@/lib/firebase'
-import { collection, onSnapshot, query, where, doc, setDoc, updateDoc, serverTimestamp, getDoc, deleteDoc } from 'firebase/firestore'
+import { collection, onSnapshot, query, doc, setDoc, updateDoc, serverTimestamp, getDoc, getDocs, deleteDoc } from 'firebase/firestore'
 import { useNavigate } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
+// Lucide Icons Import
+import {
+    Users,
+    CirclePlus,
+    CircleEllipsis,
+    CircleSlash,
+    CircleDot,
+    CircleUserRound,
+    CirclePower,
+    Share2,
+    ChevronsDown,
+    ChevronsUp
+} from 'lucide-react'
 
 // TypeScript window extension
 declare global {
     interface Window {
         __userDocId?: string;
+        __activityTimer?: NodeJS.Timeout;
     }
 }
+
+type UserStatus = 'awake' | 'idle' | 'gone'
 
 interface OnlineUser {
     id: string          // Dokument-ID (lesbar)
     uid?: string        // Firebase Auth UID (für Vergleiche)
     displayName: string
     email: string
-    isOnline: boolean
+    status: UserStatus  // Neu: 3-Stufen Status
+    isOnline: boolean   // Legacy support
     lastSeen: any
+    lastActivity: any   // Neu: Letzter Input/Nachricht
     photoURL?: string
+    provider?: string
 }
 
 export function ChatPage() {
-    const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([])
+    const [awakeUsers, setAwakeUsers] = useState<OnlineUser[]>([])
+    const [idleUsers, setIdleUsers] = useState<OnlineUser[]>([])
+    const [goneUsers, setGoneUsers] = useState<OnlineUser[]>([])
     const [showShareModal, setShowShareModal] = useState(false)
     const [showSettingsModal, setShowSettingsModal] = useState(false)
     const [isLoggingOut, setIsLoggingOut] = useState(false)
     const [currentDisplayName, setCurrentDisplayName] = useState('')
+    // Collapse states für die Sections
+    const [collapsedSections, setCollapsedSections] = useState({
+        awake: false,
+        idle: false,
+        gone: true  // Gone standardmäßig zugeklappt
+    })
     const navigate = useNavigate()
     const currentUser = auth.currentUser
+    const containerRef = useRef<HTMLDivElement>(null)
+
+    // Verhindere Page-Scrolling
+    useEffect(() => {
+        // Fixiere das Viewport
+        document.body.style.overflow = 'hidden'
+        document.body.style.height = '100vh'
+
+        return () => {
+            document.body.style.overflow = ''
+            document.body.style.height = ''
+        }
+    }, [])
+
+    // Cleanup alte Sessions basierend auf 3-Stufen-System
+    const cleanupOldSessions = async () => {
+        try {
+            const usersRef = collection(db, 'users')
+            const snapshot = await getDocs(usersRef)
+
+            const now = Date.now()
+            const IDLE_TIMEOUT = 3 * 60 * 1000     // 3 Minuten -> Idle
+            const GONE_TIMEOUT = 10 * 60 * 1000    // 10 Minuten -> Gone
+
+            for (const doc of snapshot.docs) {
+                const data = doc.data()
+                const lastActivity = data.lastActivity?.toDate?.() || data.lastSeen?.toDate?.() || new Date(0)
+                const timeDiff = now - lastActivity.getTime()
+
+                let newStatus: UserStatus = 'awake'
+                let isOnline = true
+
+                if (timeDiff > GONE_TIMEOUT) {
+                    newStatus = 'gone'
+                    isOnline = false
+                } else if (timeDiff > IDLE_TIMEOUT) {
+                    newStatus = 'idle'
+                    isOnline = true // Technisch noch "online" aber idle
+                }
+
+                // Update nur wenn Status sich geändert hat
+                if (data.status !== newStatus || data.isOnline !== isOnline) {
+                    console.log(`📊 Status-Update: ${data.displayName} von ${data.status || 'unknown'} zu ${newStatus}`)
+                    await updateDoc(doc.ref, {
+                        status: newStatus,
+                        isOnline: isOnline,
+                        lastSeen: serverTimestamp()
+                    })
+                }
+            }
+        } catch (error) {
+            console.error('Error cleaning up sessions:', error)
+        }
+    }
+
+    // Aktivitäts-Tracker
+    const updateActivity = async () => {
+        if (!currentUser || !window.__userDocId) return
+
+        try {
+            const docId = window.__userDocId || localStorage.getItem('userDocId')
+            if (docId) {
+                await updateDoc(doc(db, 'users', docId), {
+                    lastActivity: serverTimestamp(),
+                    status: 'awake',
+                    isOnline: true,
+                    lastSeen: serverTimestamp()
+                })
+                console.log('🎯 Activity updated - Status: awake')
+            }
+        } catch (error) {
+            console.error('Activity update failed:', error)
+        }
+    }
+
+    // Track User-Aktivität
+    useEffect(() => {
+        const handleUserActivity = () => {
+            // Debounce activity updates
+            if (window.__activityTimer) {
+                clearTimeout(window.__activityTimer)
+            }
+
+            window.__activityTimer = setTimeout(() => {
+                updateActivity()
+            }, 5000) // Update nach 5 Sekunden Inaktivität
+        }
+
+        // Listen für User-Aktivität
+        window.addEventListener('mousedown', handleUserActivity)
+        window.addEventListener('keypress', handleUserActivity)
+        window.addEventListener('touchstart', handleUserActivity)
+
+        return () => {
+            window.removeEventListener('mousedown', handleUserActivity)
+            window.removeEventListener('keypress', handleUserActivity)
+            window.removeEventListener('touchstart', handleUserActivity)
+            if (window.__activityTimer) {
+                clearTimeout(window.__activityTimer)
+            }
+        }
+    }, [])
 
     useEffect(() => {
         if (!currentUser) {
@@ -47,14 +176,16 @@ export function ChatPage() {
 
         // Erstelle oder aktualisiere User-Dokument beim Mount
         const initializeUser = async () => {
-            // Basis-Name für Display (mit shortUID für Gäste)
+            // Erst mal alte Sessions aufräumen
+            await cleanupOldSessions()
+
+            // Basis-Name für Display
             const shortId = currentUser.uid.slice(0, 8)
             const baseDisplayName = currentUser.displayName ||
                 currentUser.email?.split('@')[0] ||
                 `Gast_${shortId.slice(0, 4)}`
 
-            // FESTE Dokument-ID - ändert sich NIE!
-            // Verwende den ersten Namen oder einen generischen Namen
+            // FESTE Dokument-ID
             const initialName = currentUser.displayName ||
                 currentUser.email?.split('@')[0] ||
                 'user'
@@ -64,62 +195,58 @@ export function ChatPage() {
                 .substring(0, 20)
             const fixedDocId = `${cleanInitialName}_${shortId}`
 
-            console.log(`📝 User-Dokument ID: ${fixedDocId} (Original UID: ${currentUser.uid})`)
+            console.log(`📝 User-Dokument ID: ${fixedDocId}`)
 
-            // MIGRATION: Prüfe zuerst ob altes Dokument mit UID existiert
             const oldDocRef = doc(db, 'users', currentUser.uid)
             const newDocRef = doc(db, 'users', fixedDocId)
 
             try {
-                // Prüfe ob altes Dokument existiert
+                // Migration von altem Dokument
                 const oldDoc = await getDoc(oldDocRef)
-
                 if (oldDoc.exists() && currentUser.uid !== fixedDocId) {
                     console.log('🔄 Migriere altes User-Dokument...')
                     const oldData = oldDoc.data()
 
-                    // Kopiere Daten zum neuen Dokument
                     await setDoc(newDocRef, {
                         ...oldData,
                         uid: currentUser.uid,
                         docId: fixedDocId,
                         displayName: oldData.displayName || baseDisplayName,
+                        status: 'awake',
                         isOnline: true,
                         lastSeen: serverTimestamp(),
+                        lastActivity: serverTimestamp(),
                         migrated: true,
                         migratedAt: serverTimestamp()
                     })
 
-                    // Lösche altes Dokument
                     await deleteDoc(oldDocRef)
                     console.log('✅ Migration erfolgreich!')
 
                     setCurrentDisplayName(oldData.displayName || baseDisplayName)
                     window.__userDocId = fixedDocId
-                    localStorage.setItem('userDocId', fixedDocId) // Persistiere die ID
+                    localStorage.setItem('userDocId', fixedDocId)
                     return
                 }
 
-                // Prüfe ob neues Dokument existiert
+                // Check existing document
                 const newDoc = await getDoc(newDocRef)
-
                 if (newDoc.exists()) {
-                    // User existiert bereits - nur Online-Status aktualisieren
                     const userData = newDoc.data()
                     setCurrentDisplayName(userData.displayName || baseDisplayName)
 
                     await updateDoc(newDocRef, {
+                        status: 'awake',
                         isOnline: true,
                         lastSeen: serverTimestamp(),
+                        lastActivity: serverTimestamp(),
                         photoURL: currentUser.photoURL || userData.photoURL || null,
-                        uid: currentUser.uid  // Stelle sicher dass die echte UID gespeichert ist
+                        uid: currentUser.uid
                     })
 
-                    console.log('✅ Existing user online:', fixedDocId)
-                    window.__userDocId = fixedDocId
-                    localStorage.setItem('userDocId', fixedDocId)
+                    console.log('✅ Existing user awake:', fixedDocId)
                 } else {
-                    // Neuer User - erstelle Dokument mit initialem Display Name
+                    // Neuer User
                     setCurrentDisplayName(baseDisplayName)
 
                     await setDoc(newDocRef, {
@@ -128,16 +255,19 @@ export function ChatPage() {
                         displayName: baseDisplayName,
                         email: currentUser.email || 'anonymous@chat.local',
                         photoURL: currentUser.photoURL || null,
+                        status: 'awake',
                         isOnline: true,
                         lastSeen: serverTimestamp(),
+                        lastActivity: serverTimestamp(),
                         createdAt: serverTimestamp(),
                         provider: currentUser.providerData[0]?.providerId || 'anonymous'
                     })
 
                     console.log('✅ New user registered:', fixedDocId)
-                    window.__userDocId = fixedDocId
-                    localStorage.setItem('userDocId', fixedDocId)
                 }
+
+                window.__userDocId = fixedDocId
+                localStorage.setItem('userDocId', fixedDocId)
             } catch (error) {
                 console.error('❌ Fehler beim User-Setup:', error)
             }
@@ -145,78 +275,75 @@ export function ChatPage() {
 
         initializeUser()
 
-        // Echtzeit-Listener für Online-User
-        console.log('📡 Starte Firestore Listener für users Collection...')
+        // Echtzeit-Listener für ALLE User
+        const usersRef = collection(db, 'users')
+        const q = query(usersRef)
 
-        let listenerCleanup: (() => void) | undefined
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            console.log(`📊 Snapshot erhalten! ${snapshot.size} User gefunden`)
 
-        try {
-            // TEMPORÄR: Zeige ALLE User in der Collection (für Migration)
-            const usersRef = collection(db, 'users')
-            console.log('📁 Collection Referenz erstellt:', usersRef)
+            if (snapshot.empty) {
+                console.warn('⚠️ Keine User gefunden!')
+                setAwakeUsers([])
+                setIdleUsers([])
+                setGoneUsers([])
+                return
+            }
 
-            const q = query(usersRef)
-            console.log('🔍 Query erstellt:', q)
+            const allUsers = snapshot.docs.map(doc => {
+                const data = doc.data()
 
-            const unsubscribe = onSnapshot(
-                q,
-                (snapshot) => {
-                    console.log(`📊 Snapshot erhalten! Gefundene User-Dokumente: ${snapshot.size}`)
-                    console.log('📄 Snapshot Docs:', snapshot.docs)
+                // Berechne Status basierend auf lastActivity
+                const now = Date.now()
+                const lastActivity = data.lastActivity?.toDate?.() || data.lastSeen?.toDate?.() || new Date(0)
+                const timeDiff = now - lastActivity.getTime()
 
-                    if (snapshot.empty) {
-                        console.warn('⚠️ Keine Dokumente in der users Collection gefunden!')
-                        setOnlineUsers([])
-                        return
-                    }
-
-                    const users = snapshot.docs.map(doc => {
-                        const data = doc.data()
-                        console.log(`User ${doc.id}:`, data)
-                        // Behalte die Dokument-ID als ID für konsistente Vergleiche
-                        return {
-                            id: doc.id,      // Dokument-ID
-                            uid: data.uid || doc.id,  // Echte Firebase Auth UID
-                            ...data
-                        } as OnlineUser & { uid: string }
-                    }).filter(user => {
-                        // Filtere nur User die online sind
-                        const shouldShow = user.isOnline === true
-                        console.log(`Filter ${user.displayName || user.id}: isOnline=${user.isOnline}, uid=${user.uid}, currentUid=${currentUser.uid}, show=${shouldShow}`)
-                        return shouldShow
-                    })
-
-                    // Sortiere User alphabetisch, aber zeige eigenen User zuerst
-                    users.sort((a, b) => {
-                        // Vergleiche mit der echten UID
-                        if (a.uid === currentUser.uid) return -1
-                        if (b.uid === currentUser.uid) return 1
-                        return (a.displayName || 'Anonym').localeCompare(b.displayName || 'Anonym')
-                    })
-
-                    console.log(`✅ Setze ${users.length} Online-User:`, users)
-                    setOnlineUsers(users)
-                    console.log(`👥 ${users.length} User online:`, users.map(u => u.displayName || u.email || u.id))
-                },
-                (error) => {
-                    console.error('❌ Firestore Listener Error:', error)
-                    console.error('Error Code:', error.code)
-                    console.error('Error Message:', error.message)
-
-                    if (error.code === 'permission-denied') {
-                        console.error('🔒 PERMISSION DENIED! Prüfe deine Firestore Security Rules!')
-                        alert('⚠️ Keine Berechtigung die User-Liste zu laden. Prüfe die Firestore Rules!')
-                    }
+                let calculatedStatus: UserStatus = 'awake'
+                if (timeDiff > 10 * 60 * 1000) {  // 10 Minuten
+                    calculatedStatus = 'gone'
+                } else if (timeDiff > 3 * 60 * 1000) {  // 3 Minuten
+                    calculatedStatus = 'idle'
                 }
-            )
 
-            console.log('✅ Listener erfolgreich gestartet')
-            listenerCleanup = () => unsubscribe()
-        } catch (error) {
-            console.error('💥 Fehler beim Erstellen des Listeners:', error)
-        }
+                // Verwende gespeicherten Status oder berechneten
+                const finalStatus = data.status || calculatedStatus
 
-        // Listener für Änderungen am eigenen User-Dokument
+                return {
+                    id: doc.id,
+                    uid: data.uid || doc.id,
+                    displayName: data.displayName || 'Anonym',
+                    email: data.email || '',
+                    status: finalStatus,
+                    isOnline: data.isOnline !== false,
+                    lastSeen: data.lastSeen,
+                    lastActivity: data.lastActivity,
+                    photoURL: data.photoURL || null,
+                    provider: data.provider
+                } as OnlineUser
+            })
+
+            // Teile User nach Status auf
+            const awake = allUsers.filter(u => u.status === 'awake')
+            const idle = allUsers.filter(u => u.status === 'idle')
+            const gone = allUsers.filter(u => u.status === 'gone')
+
+            // Sortiere (eigener User zuerst)
+            const sortUsers = (users: OnlineUser[]) => {
+                return users.sort((a, b) => {
+                    if (a.uid === currentUser.uid) return -1
+                    if (b.uid === currentUser.uid) return 1
+                    return (a.displayName || 'Anonym').localeCompare(b.displayName || 'Anonym')
+                })
+            }
+
+            setAwakeUsers(sortUsers(awake))
+            setIdleUsers(sortUsers(idle))
+            setGoneUsers(sortUsers(gone))
+
+            console.log(`👥 Status: ${awake.length} awake, ${idle.length} idle, ${gone.length} gone`)
+        })
+
+        // Listener für eigenes User-Dokument
         const userDocId = window.__userDocId || localStorage.getItem('userDocId') || currentUser.uid
         const userRef = doc(db, 'users', userDocId)
         const userUnsubscribe = onSnapshot(userRef, (doc) => {
@@ -226,71 +353,103 @@ export function ChatPage() {
             }
         })
 
-        // Heartbeat - Update lastSeen alle 30 Sekunden
+        // Heartbeat - alle 60 Sekunden (1 Minute)
         const heartbeatInterval = setInterval(async () => {
             try {
-                const docId = window.__userDocId || currentUser.uid
-                await updateDoc(doc(db, 'users', docId), {
-                    lastSeen: serverTimestamp(),
-                    isOnline: true
-                })
-            } catch (error) {
-                console.log('Heartbeat update failed:', error)
-            }
-        }, 30000) // 30 Sekunden
-
-        // Cleanup: User offline setzen beim Verlassen
-        const handleBeforeUnload = async () => {
-            const docId = window.__userDocId || currentUser.uid
-            const userRef = doc(db, 'users', docId)
-            try {
-                // Verwende ein Promise mit einem Timeout für beforeunload
-                await Promise.race([
-                    updateDoc(userRef, {
-                        isOnline: false,
+                const docId = window.__userDocId || localStorage.getItem('userDocId')
+                if (docId) {
+                    await updateDoc(doc(db, 'users', docId), {
                         lastSeen: serverTimestamp()
-                    }),
-                    new Promise(resolve => setTimeout(resolve, 1000)) // Max 1 Sekunde warten
-                ])
+                        // lastActivity wird nur bei echter Aktivität geupdated
+                    })
+                    console.log('💓 Heartbeat sent')
+                }
             } catch (error) {
-                console.log('Could not update offline status:', error)
+                console.log('Heartbeat failed:', error)
             }
-        }
+        }, 60000)  // 60 Sekunden = 1 Minute
 
-        // Event Listeners
-        window.addEventListener('beforeunload', handleBeforeUnload)
+        // Garbage Collector - alle 60 Sekunden (1 Minute)
+        const garbageCollector = setInterval(async () => {
+            console.log('🧹 Running garbage collector...')
+            await cleanupOldSessions()
+        }, 60000)  // 60 Sekunden = 1 Minute
 
-        // Visibility API - setze User offline wenn Tab nicht sichtbar ist (optional)
+        // Page Visibility API
         const handleVisibilityChange = async () => {
-            const docId = window.__userDocId || currentUser.uid
+            const docId = window.__userDocId || localStorage.getItem('userDocId')
+            if (!docId) return
+
             if (document.hidden) {
-                // Tab ist versteckt - optional offline setzen
-                console.log('Tab hidden - keeping user online but updating lastSeen')
-                await updateDoc(doc(db, 'users', docId), {
-                    lastSeen: serverTimestamp()
-                })
+                console.log('📱 Tab versteckt - setze Status auf idle nach 60s')
+
+                // Nach 60 Sekunden auf "idle" setzen wenn immer noch versteckt
+                setTimeout(async () => {
+                    if (document.hidden) {
+                        await updateDoc(doc(db, 'users', docId), {
+                            status: 'idle',
+                            lastSeen: serverTimestamp()
+                        })
+                        console.log('📱 Tab immer noch versteckt - Status auf idle gesetzt')
+                    }
+                }, 60000)  // 60 Sekunden = 1 Minute
             } else {
-                // Tab ist wieder sichtbar - definitiv online setzen
+                console.log('📱 Tab wieder sichtbar - setze awake')
                 await updateDoc(doc(db, 'users', docId), {
+                    status: 'awake',
                     isOnline: true,
-                    lastSeen: serverTimestamp()
+                    lastSeen: serverTimestamp(),
+                    lastActivity: serverTimestamp()
                 })
             }
         }
 
         document.addEventListener('visibilitychange', handleVisibilityChange)
 
-        // Cleanup function
+        // Cleanup beim Verlassen
+        const handleBeforeUnload = () => {
+            const docId = window.__userDocId || localStorage.getItem('userDocId')
+            if (docId) {
+                // Verwende sendBeacon für zuverlässigeres Update beim Schließen
+                const data = JSON.stringify({
+                    status: 'gone',
+                    isOnline: false,
+                    lastSeen: new Date().toISOString()
+                })
+
+                // Navigator.sendBeacon ist zuverlässiger beim Page-Unload
+                // (Funktioniert nur mit echtem Backend-Endpoint)
+                // navigator.sendBeacon(`/api/offline/${docId}`, data)
+
+                // Fallback: Direktes Firebase Update (funktioniert manchmal)
+                updateDoc(doc(db, 'users', docId), {
+                    status: 'gone',
+                    isOnline: false,
+                    lastSeen: serverTimestamp()
+                }).catch(() => {
+                    // Erwarte Fehler beim Unload
+                })
+            }
+        }
+
+        window.addEventListener('beforeunload', handleBeforeUnload)
+        window.addEventListener('unload', handleBeforeUnload)
+
+        // Cleanup
         return () => {
             clearInterval(heartbeatInterval)
+            clearInterval(garbageCollector)
             window.removeEventListener('beforeunload', handleBeforeUnload)
+            window.removeEventListener('unload', handleBeforeUnload)
             document.removeEventListener('visibilitychange', handleVisibilityChange)
-            if (listenerCleanup) listenerCleanup()
+            if (unsubscribe) unsubscribe()
             userUnsubscribe()
 
-            // Setze User offline beim Unmount
+            // Final gone update
             if (currentUser && window.__userDocId) {
-                updateDoc(doc(db, 'users', window.__userDocId), {
+                const docId = window.__userDocId
+                updateDoc(doc(db, 'users', docId), {
+                    status: 'gone',
                     isOnline: false,
                     lastSeen: serverTimestamp()
                 }).catch(console.error)
@@ -300,27 +459,25 @@ export function ChatPage() {
 
     const handleLogout = async () => {
         const confirmLogout = window.confirm('Möchtest du dich wirklich ausloggen?\n\nKlicke "OK" zum Ausloggen oder "Abbrechen" um im Chat zu bleiben.')
-
         if (!confirmLogout) return
 
         setIsLoggingOut(true)
 
         try {
             if (currentUser) {
-                const docId = (window as any).__userDocId || currentUser.uid
-                const userRef = doc(db, 'users', docId)
-
-                // Setze User offline bevor Logout
-                try {
-                    await updateDoc(userRef, {
+                const docId = window.__userDocId || localStorage.getItem('userDocId')
+                if (docId) {
+                    await updateDoc(doc(db, 'users', docId), {
+                        status: 'gone',
                         isOnline: false,
                         lastSeen: serverTimestamp()
                     })
-                    console.log('✅ User offline gesetzt')
-                } catch (error) {
-                    console.log('Could not update user status:', error)
+                    console.log('✅ User gone gesetzt')
                 }
             }
+
+            localStorage.removeItem('userDocId')
+            delete window.__userDocId
 
             await signOut(auth)
             navigate('/login')
@@ -332,19 +489,12 @@ export function ChatPage() {
         }
     }
 
-    const handleInvite = () => {
-        setShowShareModal(true)
-    }
-
-    const handleOpenSettings = () => {
-        setShowSettingsModal(true)
-    }
+    const handleInvite = () => setShowShareModal(true)
+    const handleOpenSettings = () => setShowSettingsModal(true)
 
     const copyLink = () => {
         navigator.clipboard.writeText(window.location.origin)
-            .then(() => {
-                alert('Link wurde in die Zwischenablage kopiert! 📋')
-            })
+            .then(() => alert('Link wurde in die Zwischenablage kopiert! 📋'))
             .catch(() => {
                 const input = document.createElement('input')
                 input.value = window.location.origin
@@ -362,192 +512,303 @@ export function ChatPage() {
         window.open(`https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`, '_blank')
     }
 
-    // Format last seen time
-    const formatLastSeen = (lastSeen: any) => {
-        if (!lastSeen) return 'Gerade online'
+    const formatLastSeen = (lastActivity: any, lastSeen: any) => {
+        const relevantTime = lastActivity || lastSeen
+        if (!relevantTime) return 'Status unbekannt'
 
-        const date = lastSeen.toDate ? lastSeen.toDate() : new Date(lastSeen)
+        const date = relevantTime.toDate ? relevantTime.toDate() : new Date(relevantTime)
         const now = new Date()
         const diff = now.getTime() - date.getTime()
         const minutes = Math.floor(diff / 60000)
 
-        if (minutes < 1) return 'Gerade eben'
-        if (minutes < 60) return `Vor ${minutes} Min.`
-        if (minutes < 1440) return `Vor ${Math.floor(minutes / 60)} Std.`
+        if (minutes < 1) return 'Gerade aktiv'
+        if (minutes < 2) return 'Vor 1 Minute'
+        if (minutes < 60) return `Vor ${minutes} Minuten`
+        if (minutes < 120) return 'Vor 1 Stunde'
+        if (minutes < 1440) return `Vor ${Math.floor(minutes / 60)} Stunden`
         return `Vor ${Math.floor(minutes / 1440)} Tagen`
     }
 
+    // Toggle collapse state
+    const toggleSection = (section: 'awake' | 'idle' | 'gone') => {
+        setCollapsedSections(prev => ({
+            ...prev,
+            [section]: !prev[section]
+        }))
+    }
+
+    // User Status Component
+    const UserStatusList = ({ isMobile = false }: { isMobile?: boolean }) => (
+        <div className={`${isMobile ? '' : 'h-[500px] overflow-y-auto'} p-3 space-y-4 text-xs`}>
+            {/* Awake Users */}
+            <div>
+                <div
+                    className="flex items-center gap-2 text-green-500 font-semibold mb-2 cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => toggleSection('awake')}
+                >
+                    <CirclePlus className="w-5 h-5" strokeWidth={3} />
+                    <span>Awake ({awakeUsers.length})</span>
+                    {collapsedSections.awake ?
+                        <ChevronsUp className="w-3 h-3 ml-auto" strokeWidth={2} /> :
+                        <ChevronsDown className="w-3 h-3 ml-auto" strokeWidth={2} />
+                    }
+                </div>
+                {!collapsedSections.awake && (
+                    <div className="space-y-1 pl-6">
+                        {awakeUsers.length > 0 ? (
+                            awakeUsers.map(user => (
+                                <div
+                                    key={user.id}
+                                    className={`flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-[#e5f3ff] transition-colors ${
+                                        user.uid === currentUser?.uid ? 'bg-[#f0f7ff] border border-[#c7d9ff]' : ''
+                                    }`}
+                                >
+                                    <CircleDot className="w-3 h-3 text-green-500" strokeWidth={4} />
+                                    <div className="flex-1 min-w-0">
+                                        <div className="font-medium truncate text-[#0f3fae]">
+                                            {user.displayName}
+                                            {user.uid === currentUser?.uid && ' (Du)'}
+                                        </div>
+                                        <div className="text-[10px] text-[#6c83ca]">
+                                            {formatLastSeen(user.lastActivity, user.lastSeen)}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="text-[#6c83ca] italic pl-2">Niemand wach</div>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* Idle Users */}
+            <div>
+                <div
+                    className="flex items-center gap-2 text-orange-500 font-semibold mb-2 cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => toggleSection('idle')}
+                >
+                    <CircleEllipsis className="w-5 h-5" strokeWidth={3} />
+                    <span>Idle ({idleUsers.length})</span>
+                    {collapsedSections.idle ?
+                        <ChevronsUp className="w-3 h-3 ml-auto" strokeWidth={2} /> :
+                        <ChevronsDown className="w-3 h-3 ml-auto" strokeWidth={2} />
+                    }
+                </div>
+                {!collapsedSections.idle && (
+                    <div className="space-y-1 pl-6">
+                        {idleUsers.length > 0 ? (
+                            idleUsers.map(user => (
+                                <div
+                                    key={user.id}
+                                    className={`flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-[#fff3e0] transition-colors ${
+                                        user.uid === currentUser?.uid ? 'bg-[#fff8f0] border border-[#ffd9b3]' : ''
+                                    }`}
+                                >
+                                    <CircleDot className="w-3 h-3 text-orange-500" strokeWidth={4} />
+                                    <div className="flex-1 min-w-0">
+                                        <div className="font-medium truncate text-[#b87100]">
+                                            {user.displayName}
+                                            {user.uid === currentUser?.uid && ' (Du)'}
+                                        </div>
+                                        <div className="text-[10px] text-[#cc9966]">
+                                            {formatLastSeen(user.lastActivity, user.lastSeen)}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="text-[#cc9966] italic pl-2">Niemand untätig</div>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* Gone Users */}
+            <div>
+                <div
+                    className="flex items-center gap-2 text-red-500 font-semibold mb-2 cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => toggleSection('gone')}
+                >
+                    <CircleSlash className="w-5 h-5" strokeWidth={3} />
+                    <span>Gone ({goneUsers.length})</span>
+                    {collapsedSections.gone ?
+                        <ChevronsUp className="w-3 h-3 ml-auto" strokeWidth={2} /> :
+                        <ChevronsDown className="w-3 h-3 ml-auto" strokeWidth={2} />
+                    }
+                </div>
+                {!collapsedSections.gone && (
+                    <div className="space-y-1 pl-6">
+                        {goneUsers.length > 0 ? (
+                            goneUsers.map(user => (
+                                <div
+                                    key={user.id}
+                                    className={`flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-red-50 transition-colors opacity-60 ${
+                                        user.uid === currentUser?.uid ? 'bg-red-50 border border-red-200' : ''
+                                    }`}
+                                >
+                                    <CircleDot className="w-3 h-3 text-red-500" strokeWidth={4} />
+                                    <div className="flex-1 min-w-0">
+                                        <div className="font-medium truncate text-gray-600">
+                                            {user.displayName}
+                                            {user.uid === currentUser?.uid && ' (Du)'}
+                                        </div>
+                                        <div className="text-[10px] text-gray-400">
+                                            {formatLastSeen(user.lastActivity, user.lastSeen)}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="text-gray-400 italic pl-2">Niemand weg</div>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>
+    )
+
     return (
-        <section
-            className="relative min-h-screen bg-gradient-to-br from-[#9ecdfb] via-[#c2dcff] to-[#f1f6ff] flex items-center justify-center overflow-hidden px-4 py-10"
+        <div
+            ref={containerRef}
+            className="fixed inset-0 bg-gradient-to-br from-[#9ecdfb] via-[#c2dcff] to-[#f1f6ff] overflow-auto"
             style={{ fontFamily: 'Tahoma, Verdana, sans-serif' }}
         >
-            <div className="absolute inset-0 pointer-events-none">
+            {/* Background Effects */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
                 <div className="absolute -top-24 -left-24 w-[380px] h-[380px] bg-[radial-gradient(circle,#ffffff75,transparent_70%)] blur-2xl" />
                 <div className="absolute top-20 right-10 w-[320px] h-[320px] bg-[radial-gradient(circle,#7fa6ff4d,transparent_70%)] blur-2xl" />
                 <div className="absolute bottom-[-160px] left-1/3 w-[420px] h-[420px] bg-[radial-gradient(circle,#c7d9ff80,transparent_70%)] blur-3xl" />
             </div>
 
-            <div className="relative w-full max-w-6xl">
-                <div className="relative rounded-[20px] border border-[#7fa6f7] bg-white/90 backdrop-blur-sm shadow-[0_20px_45px_rgba(40,94,173,0.28)] overflow-hidden">
-                    <div className="relative bg-[#f9fbff]/95">
-                        {/* Header */}
-                        <div className="bg-gradient-to-r from-[#0a4bdd] via-[#2a63f1] to-[#0a4bdd] px-5 py-3 text-white flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-full border border-white/40 bg-white/20 backdrop-blur-sm flex items-center justify-center text-lg">
-                                    💬
+            {/* Main Content Container */}
+            <div className="relative min-h-screen flex items-center justify-center p-4">
+                <div className="w-full max-w-6xl">
+                    <div className="relative rounded-[20px] border border-[#7fa6f7] bg-white/90 backdrop-blur-sm shadow-[0_20px_45px_rgba(40,94,173,0.28)] overflow-hidden">
+                        <div className="relative bg-[#f9fbff]/95">
+                            {/* Header */}
+                            <div className="bg-gradient-to-r from-[#0a4bdd] via-[#2a63f1] to-[#0a4bdd] px-5 py-3 text-white flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-full border border-white/40 bg-white/20 backdrop-blur-sm flex items-center justify-center text-lg">
+                                        💬
+                                    </div>
+                                    <div className="leading-tight">
+                                        <p className="text-xs uppercase tracking-[0.3em] text-[#cfe0ff]">Retro Room</p>
+                                        <h1 className="text-lg font-semibold" style={{ fontFamily: 'Trebuchet MS, Tahoma, sans-serif' }}>
+                                            Alles Bene Messenger
+                                        </h1>
+                                    </div>
                                 </div>
-                                <div className="leading-tight">
-                                    <p className="text-xs uppercase tracking-[0.3em] text-[#cfe0ff]">Retro Room</p>
-                                    <h1 className="text-lg font-semibold" style={{ fontFamily: 'Trebuchet MS, Tahoma, sans-serif' }}>
-                                        Alles Bene Messenger
-                                    </h1>
+                                <div className="hidden md:flex items-center gap-3 text-xs text-[#d7e6ff]">
+                                    <span className="inline-flex items-center gap-1">
+                                        <CircleDot className="w-3 h-3 text-green-400" strokeWidth={3} />
+                                        {awakeUsers.length} awake
+                                    </span>
+                                    <span className="h-4 w-px bg-white/40" />
+                                    <span className="inline-flex items-center gap-1">
+                                        <CircleDot className="w-3 h-3 text-orange-400" strokeWidth={3} />
+                                        {idleUsers.length} idle
+                                    </span>
                                 </div>
                             </div>
-                            <div className="hidden md:flex items-center gap-2 text-xs text-[#d7e6ff]">
-                                <span className="inline-flex items-center gap-1">
-                                    <span className="w-2 h-2 bg-[#7FBA00] rounded-full animate-pulse" />
-                                    {onlineUsers.length} online
-                                </span>
-                                <span className="h-4 w-px bg-white/40" />
-                                <span>Globale Lobby</span>
-                            </div>
-                        </div>
 
-                        <div className="px-5 py-5 md:px-6 md:py-6 md:grid md:grid-cols-[minmax(0,1fr)_260px] md:gap-6 md:items-start">
-                            <div className="flex flex-col gap-4">
-                                <div className="bg-white rounded-[16px] border border-[#7a96df] shadow-[0_12px_30px_rgba(58,92,173,0.15)] overflow-hidden">
-                                    <ChatBoard />
-                                </div>
-                                <div className="bg-white rounded-[14px] border border-[#7a96df] shadow-[0_10px_20px_rgba(58,92,173,0.12)] overflow-visible">
-                                    <ChatBar />
-                                </div>
+                            <div className="px-5 py-5 md:px-6 md:py-6 md:grid md:grid-cols-[minmax(0,1fr)_280px] md:gap-6 md:items-start">
+                                <div className="flex flex-col gap-4">
+                                    <div className="bg-white rounded-[16px] border border-[#7a96df] shadow-[0_12px_30px_rgba(58,92,173,0.15)] overflow-hidden">
+                                        <ChatBoard />
+                                    </div>
+                                    <div className="bg-white rounded-[14px] border border-[#7a96df] shadow-[0_10px_20px_rgba(58,92,173,0.12)] overflow-visible">
+                                        <ChatBar />
+                                    </div>
 
-                                {/* Mobile Online Users */}
-                                <div className="md:hidden mt-2">
-                                    <h3 className="text-xs font-bold text-[#0a4bdd] uppercase tracking-widest mb-3">
-                                        Online Buddies ({onlineUsers.length})
-                                    </h3>
-                                    <div className="space-y-2">
-                                        {onlineUsers.length > 0 ? (
-                                            onlineUsers.map(user => (
-                                                <div
-                                                    key={user.id}
-                                                    className="flex items-center gap-2 rounded-lg border border-[#c7d9ff] bg-[#f5f8ff] px-3 py-2"
-                                                >
-                                                    <span className="w-2 h-2 bg-[#7FBA00] rounded-full flex-shrink-0" />
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="text-xs text-[#0a4bdd] font-medium truncate">
-                                                            {user.displayName || user.email?.split('@')[0] || 'Anonym'}
-                                                            {user.uid === currentUser?.uid && ' (You)'}
-                                                        </div>
-                                                        <div className="text-[10px] text-[#6c83ca]">
-                                                            {user.isOnline === false ? '⚫ Offline' : formatLastSeen(user.lastSeen)}
-                                                        </div>
-                                                    </div>
+                                    {/* Mobile User List */}
+                                    <div className="md:hidden mt-2">
+                                        <div className="rounded-[16px] border border-[#7a96df] bg-white/95 shadow-[0_12px_28px_rgba(58,92,173,0.18)] overflow-hidden">
+                                            <div className="bg-gradient-to-r from-[#eaf1ff] to-[#dfe9ff] px-4 py-3 border-b border-[#c7d9ff]">
+                                                <div className="text-sm font-semibold text-[#0a4bdd] flex items-center gap-2">
+                                                    <Users className="w-6 h-6" strokeWidth={3} />
+                                                    User Status
                                                 </div>
-                                            ))
-                                        ) : (
-                                            <div className="text-xs text-[#5c6fb9] italic p-3 bg-[#f5f8ff] rounded-lg border border-[#c7d9ff]">
-                                                Lade Online-User...
+                                            </div>
+                                            <UserStatusList isMobile={true} />
+                                        </div>
+
+                                        <div className="mt-4 grid grid-cols-1 gap-2">
+                                            <button
+                                                onClick={handleInvite}
+                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] flex items-center justify-center gap-2"
+                                            >
+                                                <Share2 className="w-6 h-6" strokeWidth={3} />
+                                                Freund einladen
+                                            </button>
+                                            <button
+                                                onClick={handleOpenSettings}
+                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] flex items-center justify-center gap-2"
+                                            >
+                                                <CircleUserRound className="w-6 h-6" strokeWidth={3} />
+                                                Einstellungen
+                                            </button>
+                                            <button
+                                                onClick={handleLogout}
+                                                disabled={isLoggingOut}
+                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                            >
+                                                <CirclePower className="w-6 h-6" strokeWidth={3} />
+                                                {isLoggingOut ? 'Wird abgemeldet...' : 'Abmelden'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Desktop Sidebar */}
+                                <aside className="hidden md:block">
+                                    <div className="rounded-[16px] border border-[#7a96df] bg-white/95 shadow-[0_12px_28px_rgba(58,92,173,0.18)] overflow-hidden flex flex-col">
+                                        <div className="bg-gradient-to-r from-[#eaf1ff] to-[#dfe9ff] px-4 py-3 border-b border-[#c7d9ff]">
+                                            <div className="text-sm font-semibold text-[#0a4bdd] flex items-center gap-2">
+                                                <Users className="w-6 h-6" strokeWidth={3} />
+                                                User Status
+                                            </div>
+                                        </div>
+
+                                        <UserStatusList />
+
+                                        <div className="border-t border-[#c7d9ff] bg-[#f2f6ff] p-3 space-y-2 text-xs">
+                                            <button
+                                                onClick={handleInvite}
+                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] flex items-center justify-center gap-2"
+                                            >
+                                                <Share2 className="w-6 h-6" strokeWidth={3} />
+                                                Freund einladen
+                                            </button>
+                                            <button
+                                                onClick={handleOpenSettings}
+                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] flex items-center justify-center gap-2"
+                                            >
+                                                <CircleUserRound className="w-6 h-6" strokeWidth={3} />
+                                                Einstellungen
+                                            </button>
+                                            <button
+                                                onClick={handleLogout}
+                                                disabled={isLoggingOut}
+                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                            >
+                                                <CirclePower className="w-6 h-6" strokeWidth={3} />
+                                                {isLoggingOut ? 'Wird abgemeldet...' : 'Abmelden'}
+                                            </button>
+                                        </div>
+
+                                        {/* Debug Info */}
+                                        {import.meta.env.DEV && (
+                                            <div className="border-t border-[#c7d9ff] bg-white/90 px-3 py-2 text-[10px] text-[#5c6fb9]">
+                                                <div>User: {currentUser?.email || 'Anonym'}</div>
+                                                <div>UID: {currentUser?.uid?.slice(0, 15)}...</div>
+                                                <div>DocID: {window.__userDocId?.slice(0, 15)}...</div>
+                                                <div>Total: {awakeUsers.length + idleUsers.length + goneUsers.length} Users</div>
                                             </div>
                                         )}
                                     </div>
-                                    <div className="mt-4 grid grid-cols-1 gap-2">
-                                        <button
-                                            onClick={handleInvite}
-                                            className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px]"
-                                        >
-                                            📣 Freund einladen
-                                        </button>
-                                        <button
-                                            onClick={handleOpenSettings}
-                                            className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px]"
-                                        >
-                                            ⚙️ Einstellungen
-                                        </button>
-                                        <button
-                                            onClick={handleLogout}
-                                            disabled={isLoggingOut}
-                                            className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed"
-                                        >
-                                            {isLoggingOut ? '⏳ Wird abgemeldet...' : 'Abmelden'}
-                                        </button>
-                                    </div>
-                                </div>
+                                </aside>
                             </div>
-
-                            {/* Desktop Sidebar */}
-                            <aside className="hidden md:block">
-                                <div className="rounded-[16px] border border-[#7a96df] bg-white/95 shadow-[0_12px_28px_rgba(58,92,173,0.18)] overflow-hidden flex flex-col">
-                                    <div className="bg-gradient-to-r from-[#eaf1ff] to-[#dfe9ff] px-4 py-3 border-b border-[#c7d9ff]">
-                                        <div className="flex items-center gap-2 text-[#0a4bdd] text-sm font-semibold">
-                                            <span className="w-2 h-2 bg-[#7FBA00] rounded-full animate-pulse" />
-                                            Online Buddies ({onlineUsers.length})
-                                        </div>
-                                    </div>
-                                    <div className="max-h-64 overflow-y-auto p-3 space-y-2 text-xs text-[#0f3fae] flex-1">
-                                        {onlineUsers.length > 0 ? (
-                                            onlineUsers.map(user => (
-                                                <div
-                                                    key={user.id}
-                                                    className={`flex items-center gap-2 px-2 py-2 rounded-md hover:bg-[#e5f3ff] transition-colors ${
-                                                        user.id === currentUser?.uid ? 'bg-[#f0f7ff] border border-[#c7d9ff]' : ''
-                                                    }`}
-                                                >
-                                                    <span className="w-2 h-2 bg-[#7FBA00] rounded-full flex-shrink-0" />
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="font-medium truncate">
-                                                            {user.displayName}
-                                                            {user.id === currentUser?.uid && ' (Du)'}
-                                                        </div>
-                                                        <div className="text-[10px] text-[#6c83ca]">
-                                                            {formatLastSeen(user.lastSeen)}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <div className="italic text-[#6075b7] px-2 py-4 text-center">
-                                                <div className="mb-2">👻</div>
-                                                <div>Noch niemand online...</div>
-                                                <div className="text-[10px] text-[#8899cc] mt-1">
-                                                    Lade Freunde ein!
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="border-t border-[#c7d9ff] bg-[#f2f6ff] p-3 space-y-2 text-xs">
-                                        <button
-                                            onClick={handleInvite}
-                                            className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px]"
-                                        >
-                                            📣 Freund einladen
-                                        </button>
-                                        <button
-                                            onClick={handleOpenSettings}
-                                            className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px]"
-                                        >
-                                            ⚙️ Einstellungen
-                                        </button>
-                                        <button
-                                            onClick={handleLogout}
-                                            disabled={isLoggingOut}
-                                            className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed"
-                                        >
-                                            {isLoggingOut ? '⏳ Wird abgemeldet...' : 'Abmelden'}
-                                        </button>
-                                    </div>
-                                    {/* Debug Info - nur in Dev */}
-                                    {import.meta.env.DEV && (
-                                        <div className="border-t border-[#c7d9ff] bg-white/90 px-3 py-2 text-[10px] text-[#5c6fb9]">
-                                            <div>User: {currentUser?.email || 'Anonym'}</div>
-                                            <div>UID: {currentUser?.uid?.slice(0, 15)}...</div>
-                                            <div>Provider: {currentUser?.providerData[0]?.providerId || 'anonymous'}</div>
-                                        </div>
-                                    )}
-                                </div>
-                            </aside>
                         </div>
                     </div>
                 </div>
@@ -601,6 +862,6 @@ export function ChatPage() {
                 onClose={() => setShowSettingsModal(false)}
                 currentDisplayName={currentDisplayName}
             />
-        </section>
+        </div>
     )
 }
