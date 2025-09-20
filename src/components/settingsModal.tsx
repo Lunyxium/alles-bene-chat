@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { auth, db } from '@/lib/firebase'
 import { doc, updateDoc, deleteDoc, serverTimestamp, setDoc } from 'firebase/firestore'
 import { deleteUser, updateProfile } from 'firebase/auth'
@@ -22,6 +22,7 @@ export function SettingsModal({ isOpen, onClose, currentDisplayName }: SettingsM
     })
     const [isSendingSupport, setIsSendingSupport] = useState(false)
     const navigate = useNavigate()
+    const hasAutoFocusedRef = useRef(false)
 
     if (!isOpen) return null
 
@@ -36,6 +37,8 @@ export function SettingsModal({ isOpen, onClose, currentDisplayName }: SettingsM
             message: '',
             email: auth.currentUser?.email || ''
         })
+        // Reset für nächstes Öffnen
+        hasAutoFocusedRef.current = false
     }
 
     const handleClose = () => {
@@ -184,7 +187,17 @@ export function SettingsModal({ isOpen, onClose, currentDisplayName }: SettingsM
                     handleClose()
                 }
             }}
-            tabIndex={-1}
+            ref={(el) => {
+                // Auto-focus NUR beim allerersten Render
+                if (el && !hasAutoFocusedRef.current) {
+                    setTimeout(() => {
+                        el.focus()
+                        hasAutoFocusedRef.current = true
+                    }, 50)
+                }
+            }}
+            tabIndex={0}
+            style={{ outline: 'none' }}
         >
             <div className="relative w-full max-w-lg rounded-2xl border border-[#7fa6f7] bg-white/95 shadow-[0_18px_40px_rgba(40,94,173,0.25)] overflow-hidden">
                 <div className="absolute -top-8 right-8 w-24 h-24 bg-[radial-gradient(circle,#7fa6ff4d,transparent_70%)] blur-xl" />
@@ -205,12 +218,24 @@ export function SettingsModal({ isOpen, onClose, currentDisplayName }: SettingsM
                         </div>
                         <button
                             onClick={(e) => {
+                                console.log('X-Button clicked!') // Debug - kannst du später entfernen
                                 e.preventDefault()
                                 e.stopPropagation()
                                 handleClose()
                             }}
-                            className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white text-sm transition-colors"
+                            onKeyDown={(e) => {
+                                if (e.key === 'Escape') {
+                                    e.preventDefault()
+                                    handleClose()
+                                }
+                            }}
+                            onMouseDown={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                            }}
+                            className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white text-sm transition-colors cursor-pointer"
                             type="button"
+                            style={{ zIndex: 9999 }}
                         >
                             ✕
                         </button>
@@ -231,6 +256,12 @@ export function SettingsModal({ isOpen, onClose, currentDisplayName }: SettingsM
                                     e.preventDefault()
                                     e.stopPropagation()
                                     setActiveTab(tab.id as any)
+                                }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Escape') {
+                                        e.preventDefault()
+                                        handleClose()
+                                    }
                                 }}
                                 type="button"
                                 className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
