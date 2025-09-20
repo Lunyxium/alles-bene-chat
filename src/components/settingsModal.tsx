@@ -35,14 +35,29 @@ export function SettingsModal({ isOpen, onClose, currentDisplayName }: SettingsM
                 displayName: displayName.trim()
             })
 
-            // Update Firestore user document - verwende setDoc mit merge statt updateDoc
-            const userRef = doc(db, 'users', auth.currentUser.uid)
-            await setDoc(userRef, {
+            // Hole die FESTE Dokument-ID aus localStorage oder generiere sie
+            let userDocId = localStorage.getItem('userDocId')
+
+            if (!userDocId) {
+                // Falls keine ID gespeichert, generiere eine (sollte eigentlich nicht passieren)
+                const initialName = auth.currentUser.displayName ||
+                    auth.currentUser.email?.split('@')[0] ||
+                    'user'
+                const cleanInitialName = initialName.toLowerCase()
+                    .replace(/[^a-z0-9]/g, '_')
+                    .replace(/_+/g, '_')
+                    .substring(0, 20)
+                const shortId = auth.currentUser.uid.slice(0, 8)
+                userDocId = `${cleanInitialName}_${shortId}`
+                localStorage.setItem('userDocId', userDocId)
+            }
+
+            // Update das EXISTIERENDE Dokument mit der festen ID
+            const userRef = doc(db, 'users', userDocId)
+            await updateDoc(userRef, {
                 displayName: displayName.trim(),
-                email: auth.currentUser.email || '',
-                isOnline: true,
                 updatedAt: serverTimestamp()
-            }, { merge: true })
+            })
 
             alert('✅ Anzeigename wurde erfolgreich geändert!')
         } catch (error) {
