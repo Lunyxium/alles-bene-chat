@@ -25,17 +25,38 @@ export function SettingsModal({ isOpen, onClose, currentDisplayName }: SettingsM
 
     if (!isOpen) return null
 
+    const resetForm = () => {
+        setActiveTab('profile')
+        setDisplayName(currentDisplayName)
+        setIsUpdatingName(false)
+        setIsDeletingAccount(false)
+        setIsSendingSupport(false)
+        setSupportForm({
+            subject: '',
+            message: '',
+            email: auth.currentUser?.email || ''
+        })
+    }
+
+    const handleClose = () => {
+        resetForm()
+        onClose()
+    }
+
     const handleUpdateDisplayName = async () => {
         if (!auth.currentUser || !displayName.trim()) return
 
         setIsUpdatingName(true)
         try {
+            console.log('Updating display name to:', displayName.trim())
+
             // Update Firebase Auth profile
             await updateProfile(auth.currentUser, {
                 displayName: displayName.trim()
             })
+            console.log('Firebase Auth profile updated successfully')
 
-            // Update Firestore user document - verwende setDoc mit merge statt updateDoc
+            // Update Firestore user document
             const userRef = doc(db, 'users', auth.currentUser.uid)
             await setDoc(userRef, {
                 displayName: displayName.trim(),
@@ -43,11 +64,14 @@ export function SettingsModal({ isOpen, onClose, currentDisplayName }: SettingsM
                 isOnline: true,
                 updatedAt: serverTimestamp()
             }, { merge: true })
+            console.log('Firestore document updated successfully')
 
             alert('✅ Anzeigename wurde erfolgreich geändert!')
-        } catch (error) {
-            console.error('Error updating display name:', error)
-            alert('❌ Fehler beim Ändern des Anzeigenamens. Bitte versuche es erneut.')
+            handleClose()
+
+        } catch (error: any) {
+            console.error('Detailed error updating display name:', error)
+            alert(`❌ Fehler beim Ändern des Anzeigenamens: ${error?.message || 'Unbekannter Fehler'}`)
         } finally {
             setIsUpdatingName(false)
         }
@@ -126,9 +150,7 @@ export function SettingsModal({ isOpen, onClose, currentDisplayName }: SettingsM
 
         setIsSendingSupport(true)
         try {
-            // In einer echten App würdest du hier eine E-Mail senden oder ein Ticket erstellen
-            // Für dieses Demo speichern wir es in Firestore
-            await updateDoc(doc(db, 'support_tickets', Date.now().toString()), {
+            await setDoc(doc(db, 'support_tickets', Date.now().toString()), {
                 userId: auth.currentUser?.uid || 'anonymous',
                 email: supportForm.email,
                 subject: supportForm.subject,
@@ -148,7 +170,22 @@ export function SettingsModal({ isOpen, onClose, currentDisplayName }: SettingsM
     }
 
     return (
-        <div className="fixed inset-0 bg-[#1a225040]/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div
+            className="fixed inset-0 bg-[#1a225040]/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            onClick={(e) => {
+                e.stopPropagation()
+                if (e.target === e.currentTarget) {
+                    handleClose()
+                }
+            }}
+            onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                    e.preventDefault()
+                    handleClose()
+                }
+            }}
+            tabIndex={-1}
+        >
             <div className="relative w-full max-w-lg rounded-2xl border border-[#7fa6f7] bg-white/95 shadow-[0_18px_40px_rgba(40,94,173,0.25)] overflow-hidden">
                 <div className="absolute -top-8 right-8 w-24 h-24 bg-[radial-gradient(circle,#7fa6ff4d,transparent_70%)] blur-xl" />
 
@@ -167,7 +204,11 @@ export function SettingsModal({ isOpen, onClose, currentDisplayName }: SettingsM
                             </div>
                         </div>
                         <button
-                            onClick={onClose}
+                            onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                handleClose()
+                            }}
                             className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white text-sm transition-colors"
                             type="button"
                         >
@@ -186,7 +227,11 @@ export function SettingsModal({ isOpen, onClose, currentDisplayName }: SettingsM
                         ].map((tab) => (
                             <button
                                 key={tab.id}
-                                onClick={() => setActiveTab(tab.id as any)}
+                                onClick={(e) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    setActiveTab(tab.id as any)
+                                }}
                                 type="button"
                                 className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                                     activeTab === tab.id
@@ -221,7 +266,7 @@ export function SettingsModal({ isOpen, onClose, currentDisplayName }: SettingsM
                             </div>
                             <button
                                 onClick={handleUpdateDisplayName}
-                                disabled={isUpdatingName || displayName.trim() === currentDisplayName}
+                                disabled={isUpdatingName || displayName.trim() === '' || displayName.trim() === currentDisplayName.trim()}
                                 type="button"
                                 className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] disabled:opacity-50 disabled:cursor-not-allowed"
                             >
