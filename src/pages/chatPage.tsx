@@ -521,12 +521,12 @@ export function ChatPage() {
         const diff = now.getTime() - date.getTime()
         const minutes = Math.floor(diff / 60000)
 
-        if (minutes < 1) return 'Gerade aktiv'
-        if (minutes < 2) return 'Vor 1 Minute'
-        if (minutes < 60) return `Vor ${minutes} Minuten`
-        if (minutes < 120) return 'Vor 1 Stunde'
-        if (minutes < 1440) return `Vor ${Math.floor(minutes / 60)} Stunden`
-        return `Vor ${Math.floor(minutes / 1440)} Tagen`
+        if (minutes < 1) return 'Here now'
+        if (minutes < 2) return '(Idle) 1 minute'
+        if (minutes < 60) return `${minutes} minutes ago`
+        if (minutes < 120) return '(Extended AFK) 1 hour'
+        if (minutes < 1440) return `${Math.floor(minutes / 60)} hours ago`
+        return `${Math.floor(minutes / 1440)} days ago`
     }
 
     // Toggle collapse state
@@ -537,14 +537,15 @@ export function ChatPage() {
         }))
     }
 
-    // User Status Component
+    // User Status Component mit flexibler Höhe
     const UserStatusList = ({ isMobile = false }: { isMobile?: boolean }) => (
-        <div className={`${isMobile ? '' : 'h-[500px] overflow-y-auto'} p-3 space-y-4 text-xs`}>
+        <div className={`${isMobile ? '' : 'flex-1 overflow-y-auto min-h-0 max-h-[400px]'} p-3 space-y-4 text-xs`}>
             {/* Awake Users */}
             <div>
                 <div
-                    className="flex items-center gap-2 text-green-500 font-semibold mb-2 cursor-pointer hover:opacity-80 transition-opacity"
+                    className="flex items-center gap-2 font-semibold mb-2 cursor-pointer hover:opacity-80 transition-opacity"
                     onClick={() => toggleSection('awake')}
+                    style={{ color: '#4CAF50' }}
                 >
                     <CirclePlus className="w-5 h-5" strokeWidth={3} />
                     <span>Awake ({awakeUsers.length})</span>
@@ -563,7 +564,7 @@ export function ChatPage() {
                                         user.uid === currentUser?.uid ? 'bg-[#f0f7ff] border border-[#c7d9ff]' : ''
                                     }`}
                                 >
-                                    <CircleDot className="w-3 h-3 text-green-500" strokeWidth={4} />
+                                    <CircleDot className="w-3 h-3" strokeWidth={4} style={{ color: '#4CAF50' }} />
                                     <div className="flex-1 min-w-0">
                                         <div className="font-medium truncate text-[#0f3fae]">
                                             {user.displayName}
@@ -576,7 +577,7 @@ export function ChatPage() {
                                 </div>
                             ))
                         ) : (
-                            <div className="text-[#6c83ca] italic pl-2">Niemand wach</div>
+                            <div className="text-[#6c83ca] italic pl-2">Nobody awake...</div>
                         )}
                     </div>
                 )}
@@ -585,8 +586,9 @@ export function ChatPage() {
             {/* Idle Users */}
             <div>
                 <div
-                    className="flex items-center gap-2 text-orange-500 font-semibold mb-2 cursor-pointer hover:opacity-80 transition-opacity"
+                    className="flex items-center gap-2 font-semibold mb-2 cursor-pointer hover:opacity-80 transition-opacity"
                     onClick={() => toggleSection('idle')}
+                    style={{ color: '#FF9800' }}
                 >
                     <CircleEllipsis className="w-5 h-5" strokeWidth={3} />
                     <span>Idle ({idleUsers.length})</span>
@@ -605,7 +607,7 @@ export function ChatPage() {
                                         user.uid === currentUser?.uid ? 'bg-[#fff8f0] border border-[#ffd9b3]' : ''
                                     }`}
                                 >
-                                    <CircleDot className="w-3 h-3 text-orange-500" strokeWidth={4} />
+                                    <CircleDot className="w-3 h-3" strokeWidth={4} style={{ color: '#FF9800' }} />
                                     <div className="flex-1 min-w-0">
                                         <div className="font-medium truncate text-[#b87100]">
                                             {user.displayName}
@@ -618,17 +620,18 @@ export function ChatPage() {
                                 </div>
                             ))
                         ) : (
-                            <div className="text-[#cc9966] italic pl-2">Niemand untätig</div>
+                            <div className="text-[#cc9966] italic pl-2">Nobody idle...</div>
                         )}
                     </div>
                 )}
             </div>
 
-            {/* Gone Users */}
+            {/* Gone Users - mit Grau statt Rot */}
             <div>
                 <div
-                    className="flex items-center gap-2 text-red-500 font-semibold mb-2 cursor-pointer hover:opacity-80 transition-opacity"
+                    className="flex items-center gap-2 font-semibold mb-2 cursor-pointer hover:opacity-80 transition-opacity"
                     onClick={() => toggleSection('gone')}
+                    style={{ color: '#9E9E9E' }}
                 >
                     <CircleSlash className="w-5 h-5" strokeWidth={3} />
                     <span>Gone ({goneUsers.length})</span>
@@ -643,11 +646,11 @@ export function ChatPage() {
                             goneUsers.map(user => (
                                 <div
                                     key={user.id}
-                                    className={`flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-red-50 transition-colors opacity-60 ${
-                                        user.uid === currentUser?.uid ? 'bg-red-50 border border-red-200' : ''
+                                    className={`flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-50 transition-colors opacity-60 ${
+                                        user.uid === currentUser?.uid ? 'bg-gray-50 border border-gray-200' : ''
                                     }`}
                                 >
-                                    <CircleDot className="w-3 h-3 text-red-500" strokeWidth={4} />
+                                    <CircleDot className="w-3 h-3" strokeWidth={4} style={{ color: '#9E9E9E' }} />
                                     <div className="flex-1 min-w-0">
                                         <div className="font-medium truncate text-gray-600">
                                             {user.displayName}
@@ -660,7 +663,7 @@ export function ChatPage() {
                                 </div>
                             ))
                         ) : (
-                            <div className="text-gray-400 italic pl-2">Niemand weg</div>
+                            <div className="text-gray-400 italic pl-2">Nobody gone...</div>
                         )}
                     </div>
                 )}
@@ -701,12 +704,12 @@ export function ChatPage() {
                                 </div>
                                 <div className="hidden md:flex items-center gap-3 text-xs text-[#d7e6ff]">
                                     <span className="inline-flex items-center gap-1">
-                                        <CircleDot className="w-3 h-3 text-green-400" strokeWidth={3} />
+                                        <CircleDot className="w-3 h-3" strokeWidth={3} style={{ color: '#4CAF50' }} />
                                         {awakeUsers.length} awake
                                     </span>
                                     <span className="h-4 w-px bg-white/40" />
                                     <span className="inline-flex items-center gap-1">
-                                        <CircleDot className="w-3 h-3 text-orange-400" strokeWidth={3} />
+                                        <CircleDot className="w-3 h-3" strokeWidth={3} style={{ color: '#FF9800' }} />
                                         {idleUsers.length} idle
                                     </span>
                                 </div>
@@ -726,7 +729,7 @@ export function ChatPage() {
                                         <div className="rounded-[16px] border border-[#7a96df] bg-white/95 shadow-[0_12px_28px_rgba(58,92,173,0.18)] overflow-hidden">
                                             <div className="bg-gradient-to-r from-[#eaf1ff] to-[#dfe9ff] px-4 py-3 border-b border-[#c7d9ff]">
                                                 <div className="text-sm font-semibold text-[#0a4bdd] flex items-center gap-2">
-                                                    <Users className="w-6 h-6" strokeWidth={3} />
+                                                    <Users className="w-5 h-5" strokeWidth={3} />
                                                     User Status
                                                 </div>
                                             </div>
@@ -738,68 +741,68 @@ export function ChatPage() {
                                                 onClick={handleInvite}
                                                 className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] flex items-center justify-center gap-2"
                                             >
-                                                <Share2 className="w-6 h-6" strokeWidth={3} />
-                                                Freund einladen
+                                                <Share2 className="w-5 h-5" strokeWidth={3} />
+                                                Invite a Friend
                                             </button>
                                             <button
                                                 onClick={handleOpenSettings}
-                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] flex items-center justify-center gap-2"
+                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] flex items-center justify-center gap-2"
                                             >
-                                                <CircleUserRound className="w-6 h-6" strokeWidth={3} />
-                                                Einstellungen
+                                                <CircleUserRound className="w-5 h-5" strokeWidth={3} />
+                                                Settings
                                             </button>
                                             <button
                                                 onClick={handleLogout}
                                                 disabled={isLoggingOut}
                                                 className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                             >
-                                                <CirclePower className="w-6 h-6" strokeWidth={3} />
-                                                {isLoggingOut ? 'Wird abgemeldet...' : 'Abmelden'}
+                                                <CirclePower className="w-5 h-5" strokeWidth={3} />
+                                                {isLoggingOut ? 'Wird abgemeldet...' : 'Logout'}
                                             </button>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Desktop Sidebar */}
+                                {/* Desktop Sidebar - mit flexbox für korrekte Höhenanpassung */}
                                 <aside className="hidden md:block">
-                                    <div className="rounded-[16px] border border-[#7a96df] bg-white/95 shadow-[0_12px_28px_rgba(58,92,173,0.18)] overflow-hidden flex flex-col">
-                                        <div className="bg-gradient-to-r from-[#eaf1ff] to-[#dfe9ff] px-4 py-3 border-b border-[#c7d9ff]">
+                                    <div className="rounded-[16px] border border-[#7a96df] bg-white/95 shadow-[0_12px_28px_rgba(58,92,173,0.18)] overflow-hidden flex flex-col max-h-[600px]">
+                                        <div className="bg-gradient-to-r from-[#eaf1ff] to-[#dfe9ff] px-4 py-3 border-b border-[#c7d9ff] flex-shrink-0">
                                             <div className="text-sm font-semibold text-[#0a4bdd] flex items-center gap-2">
-                                                <Users className="w-6 h-6" strokeWidth={3} />
+                                                <Users className="w-5 h-5" strokeWidth={3} />
                                                 User Status
                                             </div>
                                         </div>
 
                                         <UserStatusList />
 
-                                        <div className="border-t border-[#c7d9ff] bg-[#f2f6ff] p-3 space-y-2 text-xs">
+                                        <div className="border-t border-[#c7d9ff] bg-[#f2f6ff] p-3 space-y-2 text-xs flex-shrink-0">
                                             <button
                                                 onClick={handleInvite}
                                                 className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] flex items-center justify-center gap-2"
                                             >
-                                                <Share2 className="w-6 h-6" strokeWidth={3} />
-                                                Freund einladen
+                                                <Share2 className="w-5 h-5" strokeWidth={3} />
+                                                Invite a Friend
                                             </button>
                                             <button
                                                 onClick={handleOpenSettings}
-                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] flex items-center justify-center gap-2"
+                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] flex items-center justify-center gap-2"
                                             >
-                                                <CircleUserRound className="w-6 h-6" strokeWidth={3} />
-                                                Einstellungen
+                                                <CircleUserRound className="w-5 h-5" strokeWidth={3} />
+                                                Settings
                                             </button>
                                             <button
                                                 onClick={handleLogout}
                                                 disabled={isLoggingOut}
                                                 className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                             >
-                                                <CirclePower className="w-6 h-6" strokeWidth={3} />
-                                                {isLoggingOut ? 'Wird abgemeldet...' : 'Abmelden'}
+                                                <CirclePower className="w-5 h-5" strokeWidth={3} />
+                                                {isLoggingOut ? 'Wird abgemeldet...' : 'Logout'}
                                             </button>
                                         </div>
 
                                         {/* Debug Info */}
                                         {import.meta.env.DEV && (
-                                            <div className="border-t border-[#c7d9ff] bg-white/90 px-3 py-2 text-[10px] text-[#5c6fb9]">
+                                            <div className="border-t border-[#c7d9ff] bg-white/90 px-3 py-2 text-[10px] text-[#5c6fb9] flex-shrink-0">
                                                 <div>User: {currentUser?.email || 'Anonym'}</div>
                                                 <div>UID: {currentUser?.uid?.slice(0, 15)}...</div>
                                                 <div>DocID: {window.__userDocId?.slice(0, 15)}...</div>
