@@ -2,6 +2,7 @@ import { collection, limit, orderBy, query, onSnapshot, Timestamp } from 'fireba
 import { useEffect, useState, useRef } from 'react'
 import { db, auth } from '@/lib/firebase'
 import { ChatBubble } from './chatBubble'
+import { BellRing, BellOff } from 'lucide-react'
 
 interface Message {
     id: string
@@ -9,13 +10,22 @@ interface Message {
     userId: string
     nickname: string
     createdAt: Timestamp | null
-    type?: 'message' | 'nudge' | 'system'
+    type?: 'message' | 'nudge' | 'system' | 'wakeup'
 }
 
 export function ChatBoard() {
     const [messages, setMessages] = useState<Message[]>([])
+    const [soundsMuted, setSoundsMuted] = useState(() => {
+        return localStorage.getItem('soundsMuted') === 'true'
+    })
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const chatContainerRef = useRef<HTMLDivElement>(null)
+
+    const toggleSounds = () => {
+        const newMutedState = !soundsMuted
+        setSoundsMuted(newMutedState)
+        localStorage.setItem('soundsMuted', String(newMutedState))
+    }
 
     useEffect(() => {
         const q = query(
@@ -109,9 +119,26 @@ export function ChatBoard() {
                 <div ref={messagesEndRef} />
             </div>
 
-            {/* Typing Indicator / Status */}
-            <div className="px-4 py-2 bg-gradient-to-r from-[#eaf1ff] to-[#dfe9ff] border-t border-[#c7d9ff] text-[11px] text-[#5b6ea5]">
-                Tippe eine Nachricht oder sende einen Stupser ✨
+            {/* Typing Indicator / Status with Sound Toggle */}
+            <div className="px-4 py-2 bg-gradient-to-r from-[#eaf1ff] to-[#dfe9ff] border-t border-[#c7d9ff] text-[11px] text-[#5b6ea5] flex items-center justify-between">
+                <span>Tippe eine Nachricht oder sende ein Wake up! ⚡</span>
+                <button
+                    onClick={toggleSounds}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded hover:bg-white/30 transition-colors"
+                    title={soundsMuted ? "Sounds aktivieren" : "Sounds stummschalten"}
+                >
+                    {soundsMuted ? (
+                        <>
+                            <BellOff className="w-3 h-3" strokeWidth={2} />
+                            <span className="text-[10px]">Stumm</span>
+                        </>
+                    ) : (
+                        <>
+                            <BellRing className="w-3 h-3" strokeWidth={2} />
+                            <span className="text-[10px]">Sounds an</span>
+                        </>
+                    )}
+                </button>
             </div>
         </div>
     )

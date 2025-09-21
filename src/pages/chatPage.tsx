@@ -48,6 +48,7 @@ export function ChatPage() {
     const [goneUsers, setGoneUsers] = useState<OnlineUser[]>([])
     const [showShareModal, setShowShareModal] = useState(false)
     const [showSettingsModal, setShowSettingsModal] = useState(false)
+    const [showLogoutDialog, setShowLogoutDialog] = useState(false)
     const [isLoggingOut, setIsLoggingOut] = useState(false)
     const [currentDisplayName, setCurrentDisplayName] = useState('')
     // Collapse states für die Sections
@@ -410,18 +411,16 @@ export function ChatPage() {
         const handleBeforeUnload = () => {
             const docId = window.__userDocId || localStorage.getItem('userDocId')
             if (docId) {
-                // Verwende sendBeacon für zuverlässigeres Update beim Schließen
-                const data = JSON.stringify({
-                    status: 'gone',
-                    isOnline: false,
-                    lastSeen: new Date().toISOString()
-                })
-
-                // Navigator.sendBeacon ist zuverlässiger beim Page-Unload
-                // (Funktioniert nur mit echtem Backend-Endpoint)
+                // Navigator.sendBeacon wäre zuverlässiger, braucht aber Backend-Endpoint
+                // Für zukünftige Implementierung:
+                // const data = JSON.stringify({
+                //     status: 'gone',
+                //     isOnline: false,
+                //     lastSeen: new Date().toISOString()
+                // })
                 // navigator.sendBeacon(`/api/offline/${docId}`, data)
 
-                // Fallback: Direktes Firebase Update (funktioniert manchmal)
+                // Direktes Firebase Update (funktioniert manchmal beim Unload)
                 updateDoc(doc(db, 'users', docId), {
                     status: 'gone',
                     isOnline: false,
@@ -537,9 +536,9 @@ export function ChatPage() {
         }))
     }
 
-    // User Status Component mit flexibler Höhe
+    // User Status Component mit FESTER Höhe statt flexibler
     const UserStatusList = ({ isMobile = false }: { isMobile?: boolean }) => (
-        <div className={`${isMobile ? '' : 'flex-1 overflow-y-auto min-h-0 max-h-[400px]'} p-3 space-y-4 text-xs`}>
+        <div className={`${isMobile ? '' : 'flex-1 overflow-y-auto'} p-3 space-y-4 text-xs`}>
             {/* Awake Users */}
             <div>
                 <div
@@ -739,33 +738,33 @@ export function ChatPage() {
                                         <div className="mt-4 grid grid-cols-1 gap-2">
                                             <button
                                                 onClick={handleInvite}
-                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] flex items-center justify-center gap-2"
+                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-1.5 text-[11px] font-medium text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[0.5px] flex items-center justify-center gap-1.5"
                                             >
-                                                <Share2 className="w-5 h-5" strokeWidth={3} />
+                                                <Share2 className="w-3.5 h-3.5" strokeWidth={2} />
                                                 Invite a Friend
                                             </button>
                                             <button
                                                 onClick={handleOpenSettings}
-                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] flex items-center justify-center gap-2"
+                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-1.5 text-[11px] font-medium text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[0.5px] flex items-center justify-center gap-1.5"
                                             >
-                                                <CircleUserRound className="w-5 h-5" strokeWidth={3} />
+                                                <CircleUserRound className="w-3.5 h-3.5" strokeWidth={2} />
                                                 Settings
                                             </button>
                                             <button
-                                                onClick={handleLogout}
+                                                onClick={() => setShowLogoutDialog(true)}
                                                 disabled={isLoggingOut}
-                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-1.5 text-[11px] font-medium text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[0.5px] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
                                             >
-                                                <CirclePower className="w-5 h-5" strokeWidth={3} />
+                                                <CirclePower className="w-3.5 h-3.5" strokeWidth={2} />
                                                 {isLoggingOut ? 'Wird abgemeldet...' : 'Logout'}
                                             </button>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Desktop Sidebar - mit flexbox für korrekte Höhenanpassung */}
+                                {/* Desktop Sidebar - mit fester Höhe für konsistente Darstellung */}
                                 <aside className="hidden md:block">
-                                    <div className="rounded-[16px] border border-[#7a96df] bg-white/95 shadow-[0_12px_28px_rgba(58,92,173,0.18)] overflow-hidden flex flex-col max-h-[600px]">
+                                    <div className="rounded-[16px] border border-[#7a96df] bg-white/95 shadow-[0_12px_28px_rgba(58,92,173,0.18)] overflow-hidden flex flex-col h-[580px]">
                                         <div className="bg-gradient-to-r from-[#eaf1ff] to-[#dfe9ff] px-4 py-3 border-b border-[#c7d9ff] flex-shrink-0">
                                             <div className="text-sm font-semibold text-[#0a4bdd] flex items-center gap-2">
                                                 <Users className="w-5 h-5" strokeWidth={3} />
@@ -778,24 +777,24 @@ export function ChatPage() {
                                         <div className="border-t border-[#c7d9ff] bg-[#f2f6ff] p-3 space-y-2 text-xs flex-shrink-0">
                                             <button
                                                 onClick={handleInvite}
-                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] flex items-center justify-center gap-2"
+                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-1.5 text-[11px] font-medium text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[0.5px] flex items-center justify-center gap-1.5"
                                             >
-                                                <Share2 className="w-5 h-5" strokeWidth={3} />
+                                                <Share2 className="w-3.5 h-3.5" strokeWidth={2} />
                                                 Invite a Friend
                                             </button>
                                             <button
                                                 onClick={handleOpenSettings}
-                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] flex items-center justify-center gap-2"
+                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-1.5 text-[11px] font-medium text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[0.5px] flex items-center justify-center gap-1.5"
                                             >
-                                                <CircleUserRound className="w-5 h-5" strokeWidth={3} />
+                                                <CircleUserRound className="w-3.5 h-3.5" strokeWidth={2} />
                                                 Settings
                                             </button>
                                             <button
-                                                onClick={handleLogout}
+                                                onClick={() => setShowLogoutDialog(true)}
                                                 disabled={isLoggingOut}
-                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-4 py-2 text-sm font-semibold text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-1.5 text-[11px] font-medium text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[0.5px] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
                                             >
-                                                <CirclePower className="w-5 h-5" strokeWidth={3} />
+                                                <CirclePower className="w-3.5 h-3.5" strokeWidth={2} />
                                                 {isLoggingOut ? 'Wird abgemeldet...' : 'Logout'}
                                             </button>
                                         </div>
@@ -853,6 +852,57 @@ export function ChatPage() {
                                 className="rounded-md border border-[#7a96df] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-2 text-[#0a4bdd] font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-transform hover:-translate-y-[2px]"
                             >
                                 Schließen
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Logout Confirmation Dialog */}
+            {showLogoutDialog && (
+                <div className="fixed inset-0 bg-[#1a225040]/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="relative w-full max-w-md rounded-2xl border border-[#7fa6f7] bg-white/95 shadow-[0_18px_40px_rgba(40,94,173,0.25)] p-6">
+                        <div className="absolute -top-8 right-8 w-24 h-24 bg-[radial-gradient(circle,#7fa6ff4d,transparent_70%)] blur-xl" />
+
+                        {/* Header */}
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-full border border-[#9eb8ff] bg-gradient-to-b from-[#fff3e0] to-[#ffe6cc] flex items-center justify-center">
+                                <CirclePower className="w-5 h-5 text-[#ff6b00]" strokeWidth={2} />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-semibold text-[#0a4bdd]" style={{ fontFamily: 'Trebuchet MS, Tahoma, sans-serif' }}>
+                                    Ausloggen bestätigen
+                                </h3>
+                                <p className="text-xs text-[#6c83ca]">Möchtest du den Chat wirklich verlassen?</p>
+                            </div>
+                        </div>
+
+                        {/* Content */}
+                        <div className="bg-[#f5f8ff] border border-[#c7d9ff] rounded-lg p-4 mb-4">
+                            <p className="text-sm text-[#4b5f9b]">
+                                Du wirst aus dem Chat ausgeloggt und zur Login-Seite weitergeleitet.
+                            </p>
+                            <p className="text-xs text-[#6c83ca] mt-2">
+                                Dein Online-Status wird auf "Gone" gesetzt.
+                            </p>
+                        </div>
+
+                        {/* Buttons */}
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setShowLogoutDialog(false)}
+                                className="flex-1 rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-2 text-sm font-medium text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-transform hover:-translate-y-[1px]"
+                            >
+                                Abbrechen
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowLogoutDialog(false)
+                                    handleLogout()
+                                }}
+                                className="flex-1 rounded-md border border-[#dc2626] bg-gradient-to-b from-[#fef2f2] to-[#fee2e2] px-3 py-2 text-sm font-semibold text-[#dc2626] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-transform hover:-translate-y-[1px]"
+                            >
+                                Ausloggen
                             </button>
                         </div>
                     </div>
