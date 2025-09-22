@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { auth, db } from '@/lib/firebase'
-import { doc, updateDoc, deleteDoc, serverTimestamp, setDoc } from 'firebase/firestore'
+import { doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
 import { deleteUser, updateProfile } from 'firebase/auth'
 import { useNavigate } from 'react-router-dom'
 

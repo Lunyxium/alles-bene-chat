@@ -19,6 +19,10 @@ import {
     ArrowBigRightDash
 } from 'lucide-react'
 
+// ✅ KORREKTE IMPORTS für die neue emoji-mart Version
+import data from '@emoji-mart/data'
+import Picker from '@emoji-mart/react'
+
 // Import sound files
 import sentSound from '@/sounds/sent.mp3'
 import receivedSound from '@/sounds/received.mp3'
@@ -42,10 +46,11 @@ const sounds = {
 
 const schema = z.object({ text: z.string().min(1).max(1000) })
 
-const emojis = [
-    '😀', '😂', '😍', '🤔', '😎', '😢', '😡', '👍',
-    '👎', '❤️', '🎉', '🔥', '😴', '🤗', '🙈', '✨'
-]
+// ❌ ENTFERNT: Statisches Emoji Array (nicht mehr nötig)
+// const emojis = [
+//     '😀', '😂', '😍', '🤔', '😎', '😢', '😡', '👍',
+//     '👎', '❤️', '🎉', '🔥', '😴', '🤗', '🙈', '✨'
+// ]
 
 interface FormatOption {
     name: string
@@ -175,9 +180,10 @@ export function ChatBar() {
         playWakeUpSound()
     }
 
-    const addEmoji = (emoji: string) => {
+    // ✅ NEUE FUNKTION: Für emoji-mart Picker
+    const addEmoji = (emoji: any) => {
         const currentValue = form.getValues('text')
-        form.setValue('text', currentValue + emoji)
+        form.setValue('text', currentValue + emoji.native)
         setShowEmojis(false)
         textareaRef.current?.focus()
     }
@@ -306,21 +312,32 @@ export function ChatBar() {
                     </div>
                 )}
 
-                {/* Emoji Picker - same position as formatting */}
+                {/* ✅ NEUER EMOJI PICKER - Ersetzt das alte Grid */}
                 {showEmojis && (
-                    <div className="emoji-container absolute bottom-28 left-8 bg-white/95 backdrop-blur-sm border border-[#9eb8ff] rounded-lg shadow-[0_10px_25px_rgba(58,92,173,0.15)] p-3 z-50">
-                        <div className="grid grid-cols-8 gap-1.5">
-                            {emojis.map((emoji, idx) => (
-                                <button
-                                    key={idx}
-                                    type="button"
-                                    onClick={() => addEmoji(emoji)}
-                                    className="w-8 h-8 hover:bg-[#e5f3ff] rounded-md flex items-center justify-center text-lg transition-colors"
-                                >
-                                    {emoji}
-                                </button>
-                            ))}
-                        </div>
+                    <div className="emoji-container absolute bottom-28 left-8 z-50">
+                        <Picker
+                            data={data}
+                            onEmojiSelect={addEmoji}
+                            theme="light"
+                            previewPosition="none"
+                            searchPosition="sticky"
+                            maxFrequentRows={2}
+                            perLine={8}
+                            set="native"
+                            skin={1}
+                            locale="de"
+                            categories={[
+                                'frequent',
+                                'people',
+                                'nature',
+                                'foods',
+                                'activity',
+                                'places',
+                                'objects',
+                                'symbols',
+                                'flags'
+                            ]}
+                        />
                     </div>
                 )}
 
