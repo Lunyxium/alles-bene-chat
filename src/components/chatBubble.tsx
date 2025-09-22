@@ -1,5 +1,5 @@
 import { auth } from '@/lib/firebase'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { Howl } from 'howler'
 import receivedSound from '@/sounds/received.mp3'
 import wakeupSound from '@/sounds/wakeup.mp3'
@@ -8,11 +8,11 @@ import wakeupSound from '@/sounds/wakeup.mp3'
 const sounds = {
     received: new Howl({
         src: [receivedSound],
-        volume: 0.3  // 30% volume
+        volume: 0.3
     }),
     wakeup: new Howl({
         src: [wakeupSound],
-        volume: 0.3  // 30% volume
+        volume: 0.3
     })
 }
 
@@ -28,7 +28,7 @@ interface Message {
 // Track which messages already played sounds
 const playedMessages = new Set<string>()
 
-// Rich-Text Parser
+// Rich-Text Parser with BIGGER Emojis and GIF support
 function parseRichText(text: string): React.ReactNode {
     // Escape HTML first
     const escapeHtml = (str: string) => {
@@ -38,6 +38,13 @@ function parseRichText(text: string): React.ReactNode {
     }
 
     let formatted = escapeHtml(text)
+
+    // Parse GIF URLs FIRST (before other formatting)
+    // Unterstützt Tenor GIFs und andere gängige GIF URLs
+    formatted = formatted.replace(
+        /(https?:\/\/[^\s]+\.gif(?:\?[^\s]*)?|https?:\/\/(?:tenor\.com|media\.tenor\.com|media\.giphy\.com|i\.giphy\.com)[^\s]+)/gi,
+        '<img src="$1" alt="GIF" style="max-width: 300px; max-height: 300px; border-radius: 8px; display: block; margin: 8px 0;" />'
+    )
 
     // Parse in order of precedence
     // Code blocks first (to prevent other formatting inside)
@@ -58,9 +65,12 @@ function parseRichText(text: string): React.ReactNode {
     // Lists (only at line start)
     formatted = formatted.replace(/^- (.+)$/gm, '<div class="pl-4">• $1</div>')
 
-    // Make emojis bigger (HIER EINFÜGEN)
-    formatted = formatted.replace(/([\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}])/gu,
-        '<span style="font-size: 20px; line-height: 1;">$1</span>')
+    // Make ONLY emoji characters bigger (NOT numbers or regular text)
+    // Präzisere Regex die keine Zahlen erfasst
+    formatted = formatted.replace(
+        /([\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{27BF}](?![\d])|[\u{1FA70}-\u{1FAFF}]|[\u{1F000}-\u{1F02F}]|[\u{1F0A0}-\u{1F0FF}]|[\u{1F100}-\u{1F1FF}])/gu,
+        '<span style="font-size: 24px; line-height: 1; vertical-align: middle; display: inline-block;">$1</span>'
+    )
 
     // Convert line breaks
     formatted = formatted.replace(/\n/g, '<br/>')
@@ -174,9 +184,9 @@ export function ChatBubble({ msg }: { msg: Message }) {
         )
     }
 
-    // Regular messages - MSN Style with Rich Text
+    // Regular messages - MSN Style with Rich Text and BIGGER text
     return (
-        <div className={`my-1 text-sm flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
+        <div className={`my-1 text-base flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[70%] flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'}`}>
                 <div className={`flex items-baseline gap-1 mb-0.5`}>
                     <span className="text-[10px] text-gray-500">[{timeString}]</span>
@@ -191,7 +201,7 @@ export function ChatBubble({ msg }: { msg: Message }) {
                         ? 'bg-gradient-to-br from-[#E3F2FD] to-[#BBDEFB] text-black'
                         : 'bg-white border border-[#D1D5DB] text-black'
                 }`}>
-                    <div className="text-sm break-words text-left">
+                    <div className="text-sm break-words text-left" style={{ lineHeight: '1.5' }}>
                         {parseRichText(msg.text)}
                     </div>
                 </div>
