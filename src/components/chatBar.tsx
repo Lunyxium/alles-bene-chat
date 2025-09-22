@@ -451,7 +451,7 @@ export function ChatBar() {
                         <div className="bg-white border-2 border-[#7a96df] rounded-xl shadow-[0_15px_35px_rgba(58,92,173,0.25)] overflow-hidden">
                             <div onClick={(e) => e.stopPropagation()}>
                                 <GifPicker
-                                    tenorApiKey="AIzaSyDnEGuNKsMOPZrEDLuBNsBw9meIq1u2xTs"
+                                    tenorApiKey={import.meta.env.VITE_TENOR_API_KEY}
                                     onGifClick={(gif) => {
                                         console.log('GIF selected:', gif)
                                         addGif(gif)
