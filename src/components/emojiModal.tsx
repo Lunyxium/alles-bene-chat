@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { EMOJI_SEARCH_MAP } from './emojiSearchData' // ← Das hier rein
 
 // TypeScript Interfaces
 interface EmojiCategory {
@@ -132,22 +133,10 @@ export function EmojiModal({ isOpen, onClose, onSelect }: EmojiModalProps) {
                 // Einfache Emoji-Suche basierend auf Unicode-Namen oder Position
                 const searchTerm = search.toLowerCase()
 
-                // Basic emoji matching - könnte erweitert werden
-                const emojiDescriptions: Record<string, string[]> = {
-                    '😀': ['happy', 'smile', 'grin', 'glücklich', 'lachen'],
-                    '😂': ['laugh', 'cry', 'tears', 'joy', 'lol', 'haha', 'lustig'],
-                    '❤️': ['heart', 'love', 'red', 'herz', 'liebe'],
-                    '👍': ['thumbs', 'up', 'like', 'good', 'daumen', 'gut'],
-                    '👎': ['thumbs', 'down', 'dislike', 'bad', 'daumen', 'schlecht'],
-                    '🔥': ['fire', 'hot', 'flame', 'feuer', 'heiß'],
-                    '💯': ['hundred', 'perfect', 'score', 'hundert', 'perfekt'],
-                    '🎉': ['party', 'celebration', 'confetti', 'feier', 'party'],
-                    // Könnte erweitert werden...
-                }
-
-                const descriptions = emojiDescriptions[emoji] || []
-                return descriptions.some(desc => desc.includes(searchTerm)) ||
-                    emoji.includes(searchTerm)
+                const searchTerms = EMOJI_SEARCH_MAP[emoji] || []
+                return searchTerms.some(term =>
+                    term.toLowerCase().includes(searchTerm)
+                ) || emoji.includes(searchTerm)
             })
     }, [search, activeCategory])
 
