@@ -65,11 +65,11 @@ function parseRichText(text: string): React.ReactNode {
     // Lists (only at line start)
     formatted = formatted.replace(/^- (.+)$/gm, '<div class="pl-4">• $1</div>')
 
-    // Make ONLY emoji characters bigger (NOT numbers or regular text)
-    // Präzisere Regex die keine Zahlen erfasst
+    // Make ONLY emoji characters MUCH MUCH bigger (NOT numbers, letters or regular text)
+    // Präzisere Regex die keine Zahlen erfasst - jetzt mit 32px statt 24px!
     formatted = formatted.replace(
         /([\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{27BF}](?![\d])|[\u{1FA70}-\u{1FAFF}]|[\u{1F000}-\u{1F02F}]|[\u{1F0A0}-\u{1F0FF}]|[\u{1F100}-\u{1F1FF}])/gu,
-        '<span style="font-size: 24px; line-height: 1; vertical-align: middle; display: inline-block;">$1</span>'
+        '<span style="font-size: 32px; line-height: 1; vertical-align: middle; display: inline-block;">$1</span>'
     )
 
     // Convert line breaks
@@ -184,9 +184,9 @@ export function ChatBubble({ msg }: { msg: Message }) {
         )
     }
 
-    // Regular messages - MSN Style with Rich Text and BIGGER text
+    // Regular messages - MSN Style with Rich Text and proper text size
     return (
-        <div className={`my-1 text-base flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
+        <div className={`my-1 flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[70%] flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'}`}>
                 <div className={`flex items-baseline gap-1 mb-0.5`}>
                     <span className="text-[10px] text-gray-500">[{timeString}]</span>
@@ -201,6 +201,7 @@ export function ChatBubble({ msg }: { msg: Message }) {
                         ? 'bg-gradient-to-br from-[#E3F2FD] to-[#BBDEFB] text-black'
                         : 'bg-white border border-[#D1D5DB] text-black'
                 }`}>
+                    {/* Text mit normaler Schriftgröße, nur Emojis sind größer */}
                     <div className="text-sm break-words text-left" style={{ lineHeight: '1.5' }}>
                         {parseRichText(msg.text)}
                     </div>

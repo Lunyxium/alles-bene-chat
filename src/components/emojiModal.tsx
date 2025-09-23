@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
-import { EMOJI_SEARCH_MAP } from './emojiSearchData' // ← Das hier rein
+import { EMOJI_SEARCH_MAP } from './emojiSearchData'
+import { X } from 'lucide-react'
 
 // TypeScript Interfaces
 interface EmojiCategory {
@@ -145,13 +146,22 @@ export function EmojiModal({ isOpen, onClose, onSelect }: EmojiModalProps) {
     return (
         <div className="emoji-container absolute bottom-28 left-8 z-50">
             <div
-                className="bg-white border-2 border-[#7a96df] rounded-xl shadow-[0_15px_35px_rgba(58,92,173,0.25)] overflow-hidden"
+                className="bg-white border-2 border-[#7a96df] rounded-xl shadow-[0_15px_35px_rgba(58,92,173,0.25)] overflow-hidden relative"
                 style={{ width: '420px', maxHeight: '450px' }}
                 onClick={(e) => e.stopPropagation()}
             >
+                {/* Close Button */}
+                <button
+                    onClick={onClose}
+                    className="absolute top-3 right-3 z-50 w-6 h-6 rounded-full bg-white/90 hover:bg-white border border-gray-300 flex items-center justify-center transition-colors"
+                    title="Schließen"
+                >
+                    <X className="w-4 h-4" strokeWidth={2} />
+                </button>
+
                 <div className="flex flex-col h-full">
                     {/* Search Bar - Verbessert */}
-                    <div className="p-3 border-b-2 border-[#c7d9ff] bg-gradient-to-r from-[#f7faff] to-[#eef3ff]">
+                    <div className="p-3 pr-10 border-b-2 border-[#c7d9ff] bg-gradient-to-r from-[#f7faff] to-[#eef3ff]">
                         <div className="relative">
                             <input
                                 type="text"
@@ -201,7 +211,7 @@ export function EmojiModal({ isOpen, onClose, onSelect }: EmojiModalProps) {
                                         key={idx}
                                         onClick={() => {
                                             onSelect(emoji)
-                                            onClose()
+                                            // NICHT schließen nach Auswahl
                                         }}
                                         className="group relative p-2.5 text-2xl rounded-xl transition-all duration-200 hover:bg-gradient-to-br hover:from-[#e5f3ff] hover:to-[#d4e9ff] hover:shadow-[0_8px_16px_rgba(10,75,221,0.25)] active:scale-95 transform-gpu flex items-center justify-center"
                                         style={{
