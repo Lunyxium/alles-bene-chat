@@ -21,6 +21,9 @@ import {
     Film
 } from 'lucide-react'
 
+// Import der neuen EmojiModal Komponente
+import { EmojiModal } from './emojiModal'
+
 // Import sound files
 import sentSound from '@/sounds/sent.mp3'
 import receivedSound from '@/sounds/received.mp3'
@@ -43,110 +46,6 @@ const sounds = {
 }
 
 const schema = z.object({ text: z.string().min(1).max(1000) })
-
-// Simple Emoji Picker Component mit GIF Support
-const EmojiPicker = ({ onSelect }: { onSelect: (emoji: string) => void }) => {
-    const [search, setSearch] = useState('')
-    const [activeCategory, setActiveCategory] = useState('smileys')
-    const [gifs, setGifs] = useState<any[]>([])
-    const [gifSearch, setGifSearch] = useState('')
-    const [loadingGifs, setLoadingGifs] = useState(false)
-
-    const categories = {
-        smileys: ['😀', '😃', '😄', '😁', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥵', '🥶', '🥴', '😵', '🤯', '🤠', '🥳', '😎', '🤓', '🧐', '😕', '😟', '🙁', '☹️', '😮', '😯', '😲', '😳', '🥺', '😦', '😧', '😨', '😰', '😥', '😢', '😭', '😱', '😖', '😣', '😞', '😓', '😩', '😫', '🥱', '😤', '😡', '😠', '🤬', '😈', '👿', '💀', '☠️', '💩', '🤡', '👹', '👺', '👻', '👽', '👾', '🤖'],
-        gestures: ['👋', '🤚', '🖐️', '✋', '🖖', '👌', '🤌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💅', '🤳', '💪', '🦾', '🦿', '🦵', '🦶', '👂', '🦻', '👃', '🧠', '🦷', '🦴', '👀', '👁️', '👅', '👄'],
-        hearts: ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '💌', '💋', '💐', '🌹', '🥀', '🌺', '🌸', '🌼', '🌻', '🌷', '🌵', '🌲', '🌳', '🌴', '🌱', '🌿', '☘️', '🍀', '🎍', '🎋', '🍃', '🍂', '🍁', '🌾', '🌵', '🌰', '🎃', '🎄', '🎅', '🤶'],
-        animals: ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐻‍❄️', '🐨', '🐯', '🦁', '🐮', '🐷', '🐽', '🐸', '🐵', '🙈', '🙉', '🙊', '🐒', '🐔', '🐧', '🐦', '🐤', '🐣', '🐥', '🦆', '🦅', '🦉', '🦇', '🐺', '🐗', '🐴', '🦄', '🐝', '🐛', '🦋', '🐌', '🐞', '🐜', '🦟', '🦗', '🕷️', '🕸️', '🦂', '🐢', '🐍', '🦎', '🦖', '🦕', '🐙', '🦑', '🦐', '🦞', '🦀', '🐡', '🐠', '🐟', '🐬', '🐳', '🐋', '🦈', '🐊', '🐅', '🐆', '🦓', '🦍', '🦧', '🐘', '🦛', '🦏', '🐪', '🐫', '🦒', '🦘', '🦬', '🐃', '🐂', '🐄', '🐎', '🐖', '🐏', '🐑', '🦙', '🐐', '🦌', '🐕', '🐩', '🦮', '🐕‍🦺', '🐈', '🐈‍⬛', '🪶', '🐓', '🦃', '🦤', '🦚', '🦜', '🦢', '🦩', '🕊️', '🐇', '🦝', '🦨', '🦡', '🦫', '🦦', '🦥', '🐁', '🐀', '🐿️', '🦔'],
-        food: ['🍏', '🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🍆', '🥑', '🥦', '🥬', '🥒', '🌶️', '🫑', '🌽', '🥕', '🫒', '🧄', '🧅', '🥔', '🍠', '🥐', '🥯', '🍞', '🥖', '🥨', '🧀', '🥚', '🍳', '🧈', '🥞', '🧇', '🥓', '🥩', '🍗', '🍖', '🌭', '🍔', '🍟', '🍕', '🫓', '🥪', '🥙', '🧆', '🌮', '🌯', '🫔', '🥗', '🥘', '🫕', '🥫', '🍝', '🍜', '🍲', '🍛', '🍣', '🍱', '🥟', '🦪', '🍤', '🍙', '🍚', '🍘', '🍥', '🥠', '🥮', '🍢', '🍡', '🍧', '🍨', '🍦', '🥧', '🧁', '🍰', '🎂', '🍮', '🍭', '🍬', '🍫', '🍿', '🍩', '🍪', '🌰', '🥜', '🍯', '🥛', '🍼', '🫖', '☕', '🍵', '🧃', '🥤', '🧋', '🍶', '🍺', '🍻', '🥂', '🍷', '🥃', '🍸', '🍹', '🧉', '🍾', '🧊'],
-        activities: ['⚽', '🏀', '🏈', '⚾', '🥎', '🎾', '🏐', '🏉', '🥏', '🎱', '🪀', '🏓', '🏸', '🏒', '🏑', '🥍', '🏏', '🪃', '🥅', '⛳', '🪁', '🏹', '🎣', '🤿', '🥊', '🥋', '🎽', '🛹', '🛼', '🛷', '⛸️', '🥌', '🎿', '⛷️', '🏂', '🪂', '🏋️', '🏋️‍♀️', '🏋️‍♂️', '🤼', '🤼‍♀️', '🤼‍♂️', '🤸', '🤸‍♀️', '🤸‍♂️', '⛹️', '⛹️‍♀️', '⛹️‍♂️', '🤺', '🤾', '🤾‍♀️', '🤾‍♂️', '🏌️', '🏌️‍♀️', '🏌️‍♂️', '🏇', '🧘', '🧘‍♀️', '🧘‍♂️', '🏄', '🏄‍♀️', '🏄‍♂️', '🏊', '🏊‍♀️', '🏊‍♂️', '🤽', '🤽‍♀️', '🤽‍♂️', '🚣', '🚣‍♀️', '🚣‍♂️', '🧗', '🧗‍♀️', '🧗‍♂️', '🚵', '🚵‍♀️', '🚵‍♂️', '🚴', '🚴‍♀️', '🚴‍♂️', '🏆', '🥇', '🥈', '🥉', '🏅', '🎖️', '🏵️', '🎗️', '🎫', '🎟️', '🎪', '🤹', '🤹‍♀️', '🤹‍♂️', '🎭', '🩰', '🎨', '🎬', '🎤', '🎧', '🎼', '🎹', '🥁', '🪘', '🎷', '🎺', '🪗', '🎸', '🪕', '🎻', '🎲', '♟️', '🎯', '🎳', '🎮', '🎰', '🧩'],
-        objects: ['⌚', '📱', '📲', '💻', '⌨️', '🖥️', '🖨️', '🖱️', '🖲️', '🕹️', '🗜️', '💽', '💾', '💿', '📀', '📼', '📷', '📸', '📹', '🎥', '📽️', '🎞️', '📞', '☎️', '📟', '📠', '📺', '📻', '🎙️', '🎚️', '🎛️', '🧭', '⏱️', '⏲️', '⏰', '🕰️', '⌛', '⏳', '📡', '🔋', '🔌', '💡', '🔦', '🕯️', '🪔', '🧯', '🛢️', '💸', '💵', '💴', '💶', '💷', '🪙', '💰', '💳', '💎', '⚖️', '🪜', '🧰', '🪛', '🔧', '🔨', '⚒️', '🛠️', '⛏️', '🔩', '⚙️', '🪤', '🧱', '⛓️', '🧲', '🔫', '💣', '🧨', '🪓', '🔪', '🗡️', '⚔️', '🛡️', '🚬', '⚰️', '🪦', '⚱️', '🏺', '🔮', '📿', '🧿', '💈', '⚗️', '🔭', '🔬', '🕳️', '🩹', '🩺', '💊', '💉', '🩸', '🧬', '🦠', '🧫', '🧪', '🌡️', '🧹', '🪠', '🧺', '🧻', '🚽', '🚰', '🚿', '🛁', '🛀', '🧼', '🪥', '🪒', '🧽', '🪣', '🧴', '🛎️', '🔑', '🗝️', '🚪', '🪑', '🛋️', '🛏️', '🛌', '🧸', '🖼️', '🪞', '🪟', '🛍️', '🛒', '🎁', '🎈', '🎏', '🎀', '🪄', '🪅', '🎊', '🎉', '🎎', '🏮', '🎐', '🧧', '✉️', '📩', '📨', '📧', '💌', '📥', '📤', '📦', '🏷️', '🪧', '📪', '📫', '📬', '📭', '📮', '📯', '📜', '📃', '📄', '📑', '🧾', '📊', '📈', '📉', '🗒️', '🗓️', '📆', '📅', '🗑️', '📇', '🗃️', '🗳️', '🗄️', '📋', '📁', '📂', '🗂️', '🗞️', '📰', '📓', '📔', '📒', '📕', '📗', '📘', '📙', '📚', '📖', '🔖', '🧷', '🔗', '📎', '🖇️', '📐', '📏', '🧮', '📌', '📍', '✂️', '🖊️', '🖋️', '✒️', '🖌️', '🖍️', '📝', '✏️', '🔍', '🔎', '🔏', '🔐', '🔒', '🔓'],
-        symbols: ['⭐', '🌟', '✨', '⚡', '💫', '🌙', '☀️', '⛅', '⛈️', '🌤️', '🌥️', '🌦️', '🌧️', '🌩️', '🌨️', '❄️', '🌬️', '💨', '🌪️', '🌈', '☂️', '☔', '💧', '💦', '🌊', '🔥', '🎆', '🎇', '🌠', '🎈', '🎉', '🎊', '🎁', '🎀', '🎗️', '🏆', '🏅', '🥇', '🥈', '🥉', '⚽', '⚾', '🏀', '🏈', '🎾', '🎳', '🎯', '🎮', '🎰', '🎲', '🎭', '🎨', '🎼', '🎵', '🎶', '🎤', '🎧', '🎷', '🎸', '🎹', '🎺', '🎻', '🥁', '🎬', '📺', '📻', '📱', '💻', '⌨️', '🖥️', '🖨️', '🖱️', '💾', '💿', '📀', '☎️', '📞', '📟', '📠', '📡', '🔋', '🔌', '💡', '🔦', '🕯️', '💸', '💵', '💴', '💶', '💷', '💰', '💳', '💎', '⚖️', '🔧', '🔨', '⚒️', '🛠️', '⛏️', '🔩', '⚙️', '⛓️', '🔫', '💣', '🔪', '🗡️', '⚔️', '🛡️', '🚬', '⚰️', '⚱️', '🏺', '🔮', '📿', '💈', '⚗️', '🔭', '🔬', '🕳️', '💊', '💉', '🌡️', '🚽', '🚰', '🚿', '🛁', '🛀', '🧴', '🧷', '🧹', '🧺', '🧻', '🧼', '🧽', '🧯', '🛒', '🚪', '🛋️', '🛏️', '🛌', '🖼️', '🪞', '🪟', '🎭', '🎨', '🎬', '🎤', '🎧', '🎼', '🎹', '🥁', '🎷', '🎺', '🎸', '🎻', '🎲', '♟️', '🎯', '🎳', '🎮', '🎰', '🧩', '♠️', '♥️', '♦️', '♣️', '♟️', '🃏', '🀄', '🎴', '🔇', '🔈', '🔉', '🔊', '📢', '📣', '📯', '🔔', '🔕', '🎵', '🎶', '💿', '📀', '💽', '🎥', '🎬', '📺', '📷', '📸', '📹', '📼', '🔍', '🔎', '🕯️', '💡', '🔦', '🏮', '🏮']
-    }
-
-    const filteredEmojis = search
-        ? Object.values(categories).flat().filter(emoji =>
-            emoji.toLowerCase().includes(search.toLowerCase())
-        )
-        : categories[activeCategory as keyof typeof categories] || []
-
-    return (
-        <div className="flex flex-col h-full">
-            {/* Search Bar - MSN Style */}
-            <div className="p-3 border-b-2 border-[#c7d9ff] bg-gradient-to-r from-[#f7faff] to-[#eef3ff]">
-                <input
-                    type="text"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="🔍 Emoji suchen..."
-                    className="w-full px-3 py-2 text-sm border border-[#9eb8ff] rounded-lg focus:outline-none focus:border-[#0a4bdd] focus:ring-2 focus:ring-[#c4d4ff] bg-white/95 shadow-inner"
-                />
-            </div>
-
-            {/* Categories - MSN Button Style */}
-            {!search && (
-                <div className="flex gap-2 p-3 border-b-2 border-[#c7d9ff] flex-wrap bg-gradient-to-b from-[#eef3ff] to-[#e6eeff]">
-                    {Object.keys(categories).map(cat => (
-                        <button
-                            key={cat}
-                            onClick={() => setActiveCategory(cat)}
-                            className={`px-3 py-2 text-sm rounded-lg transition-all transform hover:scale-105 ${
-                                activeCategory === cat
-                                    ? 'bg-gradient-to-b from-[#0a4bdd] to-[#0840c7] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_2px_4px_rgba(0,0,0,0.15)] scale-105'
-                                    : 'bg-gradient-to-b from-white to-[#e6eeff] text-[#0a4bdd] hover:from-[#e0f0ff] hover:to-[#c4dfff] border border-[#9eb8ff] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]'
-                            }`}
-                            style={{ fontSize: '20px' }}
-                        >
-                            {cat === 'smileys' ? '😀' :
-                                cat === 'gestures' ? '👋' :
-                                    cat === 'hearts' ? '❤️' :
-                                        cat === 'animals' ? '🐶' :
-                                            cat === 'food' ? '🍔' :
-                                                cat === 'activities' ? '⚽' :
-                                                    cat === 'objects' ? '💻' :
-                                                        cat === 'symbols' ? '⚡' : cat}
-                        </button>
-                    ))}
-                </div>
-            )}
-
-            {/* Emojis Grid - Sexy MSN Style */}
-            <div className="flex-1 overflow-y-auto p-3 bg-gradient-to-b from-white to-[#f7faff]" style={{ maxHeight: '320px' }}>
-                <div className="grid grid-cols-7 gap-2">
-                    {filteredEmojis.map((emoji, idx) => (
-                        <button
-                            key={idx}
-                            onClick={() => onSelect(emoji)}
-                            className="group relative p-3 text-3xl hover:bg-gradient-to-br hover:from-[#e5f3ff] hover:to-[#d4e9ff] hover:scale-125 hover:z-10 rounded-xl transition-all duration-200 hover:shadow-[0_8px_16px_rgba(10,75,221,0.25)] active:scale-110 transform-gpu"
-                            style={{
-                                fontSize: '32px',
-                                lineHeight: '1',
-                                textShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                                transformOrigin: '50% 50%'
-                            }}
-                        >
-                            <span className="group-hover:animate-bounce">{emoji}</span>
-                            {/* Gloss Effect on Hover */}
-                            <div className="absolute inset-0 rounded-xl bg-gradient-to-t from-transparent via-white/0 to-white/20 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                        </button>
-                    ))}
-                </div>
-                {search && filteredEmojis.length === 0 && (
-                    <div className="text-center text-sm text-[#6c83ca] py-8">
-                        <div className="text-4xl mb-2">😢</div>
-                        <div>Keine Emojis gefunden</div>
-                        <div className="text-xs mt-1">Versuche es mit anderen Suchbegriffen</div>
-                    </div>
-                )}
-            </div>
-
-            {/* Footer with emoji count */}
-            <div className="px-3 py-2 border-t border-[#c7d9ff] bg-gradient-to-r from-[#eaf1ff] to-[#dfe9ff] text-[10px] text-[#5b6ea5] flex justify-between items-center">
-                <span>MSN Emoji Picker™</span>
-                <span>{filteredEmojis.length} Emojis verfügbar</span>
-            </div>
-        </div>
-    )
-}
 
 interface FormatOption {
     name: string
@@ -277,7 +176,7 @@ export function ChatBar() {
         playWakeUpSound()
     }
 
-    // Emoji Handler
+    // Emoji Handler - Verbessert für bessere Cursor-Position
     const addEmoji = (emoji: string) => {
         const currentValue = form.getValues('text')
         const textarea = textareaRef.current
@@ -288,17 +187,19 @@ export function ChatBar() {
             const newText = currentValue.slice(0, start) + emoji + currentValue.slice(end)
             form.setValue('text', newText)
 
-            // Set cursor position after emoji
+            // Set cursor position after emoji with proper focus
             setTimeout(() => {
                 textarea.focus()
                 const newPos = start + emoji.length
                 textarea.setSelectionRange(newPos, newPos)
+
+                // Trigger auto-resize
+                textarea.dispatchEvent(new Event('input', { bubbles: true }))
             }, 0)
         } else {
             form.setValue('text', currentValue + emoji)
+            textareaRef.current?.focus()
         }
-
-        setShowEmojis(false)
     }
 
     // GIF Handler - fügt GIF als Markdown-Bild ein statt nur URL
@@ -468,14 +369,12 @@ export function ChatBar() {
                     </div>
                 )}
 
-                {/* Simple Emoji Picker - Custom Implementation */}
-                {showEmojis && (
-                    <div className="emoji-container absolute bottom-28 left-8 z-50">
-                        <div className="bg-white border-2 border-[#7a96df] rounded-xl shadow-[0_15px_35px_rgba(58,92,173,0.25)] overflow-hidden" style={{ width: '420px', maxHeight: '450px' }}>
-                            <EmojiPicker onSelect={addEmoji} />
-                        </div>
-                    </div>
-                )}
+                {/* Emoji Modal - Saubere Integration */}
+                <EmojiModal
+                    isOpen={showEmojis}
+                    onClose={() => setShowEmojis(false)}
+                    onSelect={addEmoji}
+                />
 
                 {/* Input Bar */}
                 <div className="rounded-[12px] overflow-hidden border border-transparent bg-white/95 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]">
@@ -541,6 +440,7 @@ export function ChatBar() {
                                 }}
                                 className="w-full rounded-md border border-[#9eb8ff] bg-white/95 px-3 py-2 pr-12 text-sm text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] focus:outline-none focus:border-[#0a4bdd] focus:ring-2 focus:ring-[#c4d4ff] placeholder:text-[#6c83ca] resize-none overflow-y-auto"
                                 placeholder="Type a message..."
+                                autoComplete="off"
                                 style={{
                                     minHeight: '96px',
                                     maxHeight: '150px',
