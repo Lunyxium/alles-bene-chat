@@ -10,13 +10,13 @@ interface EmojiCategory {
     emojis: string[]
 }
 
-interface EmojiModalProps {
+interface EmojiPickerProps {
     isOpen: boolean
     onClose: () => void
     onSelect: (emoji: string) => void
 }
 
-// Emoji Categories - Ausgelagert für bessere Performance
+// Emoji Categories
 const EMOJI_CATEGORIES: EmojiCategory[] = [
     {
         id: 'smileys',
@@ -116,24 +116,22 @@ const EMOJI_CATEGORIES: EmojiCategory[] = [
     }
 ]
 
-export function EmojiModal({ isOpen, onClose, onSelect }: EmojiModalProps) {
+export function EmojiPicker({ isOpen, onClose, onSelect }: EmojiPickerProps) {
     const [search, setSearch] = useState('')
     const [activeCategory, setActiveCategory] = useState<string>('smileys')
 
-    // Performance: Memoize filtered results
+    // Memoize filtered results
     const filteredEmojis = useMemo(() => {
         if (!search.trim()) {
             const category = EMOJI_CATEGORIES.find(cat => cat.id === activeCategory)
             return category ? category.emojis : []
         }
 
-        // Smart search: durchsuche alle Emojis
+        // Search all emojis
         return EMOJI_CATEGORIES
             .flatMap(category => category.emojis)
             .filter(emoji => {
-                // Einfache Emoji-Suche basierend auf Unicode-Namen oder Position
                 const searchTerm = search.toLowerCase()
-
                 const searchTerms = EMOJI_SEARCH_MAP[emoji] || []
                 return searchTerms.some(term =>
                     term.toLowerCase().includes(searchTerm)
@@ -160,7 +158,7 @@ export function EmojiModal({ isOpen, onClose, onSelect }: EmojiModalProps) {
                 </button>
 
                 <div className="flex flex-col h-full">
-                    {/* Search Bar - Verbessert */}
+                    {/* Search Bar */}
                     <div className="p-3 pr-10 border-b-2 border-[#c7d9ff] bg-gradient-to-r from-[#f7faff] to-[#eef3ff]">
                         <div className="relative">
                             <input
@@ -182,13 +180,14 @@ export function EmojiModal({ isOpen, onClose, onSelect }: EmojiModalProps) {
                         </div>
                     </div>
 
-                    {/* Categories - Verbesserte Hover-States */}
+                    {/* Categories */}
                     {!search && (
                         <div className="flex gap-2 p-3 border-b-2 border-[#c7d9ff] flex-wrap bg-gradient-to-b from-[#eef3ff] to-[#e6eeff]">
                             {EMOJI_CATEGORIES.map(category => (
                                 <button
                                     key={category.id}
                                     onClick={() => setActiveCategory(category.id)}
+                                    type="button"
                                     className={`px-3 py-2 text-lg rounded-lg transition-all duration-200 transform hover:scale-105 ${
                                         activeCategory === category.id
                                             ? 'bg-gradient-to-b from-[#0a4bdd] to-[#0840c7] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_4px_8px_rgba(0,0,0,0.15)] scale-105'
@@ -202,17 +201,15 @@ export function EmojiModal({ isOpen, onClose, onSelect }: EmojiModalProps) {
                         </div>
                     )}
 
-                    {/* Emojis Grid - Perfektionierte Hover-Effects */}
+                    {/* Emojis Grid */}
                     <div className="flex-1 overflow-y-auto p-3 bg-gradient-to-b from-white to-[#f7faff]" style={{ maxHeight: '320px' }}>
                         {filteredEmojis.length > 0 ? (
                             <div className="grid grid-cols-7 gap-1.5">
                                 {filteredEmojis.map((emoji, idx) => (
                                     <button
-                                        key={idx}
-                                        onClick={() => {
-                                            onSelect(emoji)
-                                            // NICHT schließen nach Auswahl
-                                        }}
+                                        key={`${emoji}-${idx}`}
+                                        onClick={() => onSelect(emoji)}
+                                        type="button"
                                         className="group relative p-2.5 text-2xl rounded-xl transition-all duration-200 hover:bg-gradient-to-br hover:from-[#e5f3ff] hover:to-[#d4e9ff] hover:shadow-[0_8px_16px_rgba(10,75,221,0.25)] active:scale-95 transform-gpu flex items-center justify-center"
                                         style={{
                                             fontSize: '28px',
@@ -229,7 +226,7 @@ export function EmojiModal({ isOpen, onClose, onSelect }: EmojiModalProps) {
                                         >
                                             {emoji}
                                         </span>
-                                        {/* Gloss Effect on Hover - Zentriert */}
+                                        {/* Gloss Effect on Hover */}
                                         <div className="absolute inset-0 rounded-xl bg-gradient-to-t from-transparent via-white/0 to-white/20 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                                     </button>
                                 ))}
@@ -243,7 +240,7 @@ export function EmojiModal({ isOpen, onClose, onSelect }: EmojiModalProps) {
                         )}
                     </div>
 
-                    {/* Footer - Verbesserte Info */}
+                    {/* Footer */}
                     <div className="px-3 py-2 border-t border-[#c7d9ff] bg-gradient-to-r from-[#eaf1ff] to-[#dfe9ff] text-[10px] text-[#5b6ea5] flex justify-between items-center">
                         <span>Emoji Picker ✨</span>
                         <div className="flex items-center gap-2">
@@ -251,6 +248,7 @@ export function EmojiModal({ isOpen, onClose, onSelect }: EmojiModalProps) {
                             {search && (
                                 <button
                                     onClick={() => setSearch('')}
+                                    type="button"
                                     className="text-[#0a4bdd] hover:underline"
                                 >
                                     Alle anzeigen

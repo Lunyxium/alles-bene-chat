@@ -10,7 +10,7 @@ interface SettingsModalProps {
     currentDisplayName: string
 }
 
-export function SettingsModal({ isOpen, onClose, currentDisplayName }: SettingsModalProps) {
+export function SettingsPanel({ isOpen, onClose, currentDisplayName }: SettingsModalProps) {
     const [activeTab, setActiveTab] = useState<'profile' | 'account' | 'support'>('profile')
     const [displayName, setDisplayName] = useState(currentDisplayName)
     const [isUpdatingName, setIsUpdatingName] = useState(false)

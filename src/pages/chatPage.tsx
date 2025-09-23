@@ -1,5 +1,5 @@
 import { ChatBoard, ChatBar } from '@/components'
-import { SettingsModal } from '@/components/settingsModal'
+import { SettingsPanel } from '@/components/settingsPanel'
 import { useState, useEffect, useRef } from 'react'
 import { auth, db } from '@/lib/firebase'
 import { collection, onSnapshot, query, doc, setDoc, updateDoc, serverTimestamp, getDoc, getDocs, deleteDoc } from 'firebase/firestore'
@@ -910,7 +910,7 @@ export function ChatPage() {
             )}
 
             {/* Settings Modal */}
-            <SettingsModal
+            <SettingsPanel
                 isOpen={showSettingsModal}
                 onClose={() => setShowSettingsModal(false)}
                 currentDisplayName={currentDisplayName}
