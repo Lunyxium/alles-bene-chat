@@ -48,12 +48,12 @@ export function LoginPage() {
     }
 
     return (
-        <section className="relative min-h-screen bg-gradient-to-br from-[#9ecdfb] via-[#c2dcff] to-[#f1f6ff] flex items-center justify-center overflow-hidden px-4 py-10">
-            <div className="absolute -top-16 -left-20 w-64 h-64 bg-[radial-gradient(circle,#fff8,transparent_70%)] blur-2xl" />
-            <div className="absolute bottom-10 right-10 w-72 h-72 bg-[radial-gradient(circle,#7fb3ff33,transparent_70%)] blur-3xl" />
+        <section className="relative min-h-screen bg-gradient-to-br from-[#9ecdfb] via-[#c2dcff] to-[#f1f6ff] dark:from-zinc-800 dark:via-zinc-900 dark:to-black flex items-center justify-center overflow-hidden px-4 py-10">
+            <div className="absolute -top-16 -left-20 w-64 h-64 bg-[radial-gradient(circle,#fff8,transparent_70%)] dark:bg-[radial-gradient(circle,#ffffff15,transparent_70%)] blur-2xl" />
+            <div className="absolute bottom-10 right-10 w-72 h-72 bg-[radial-gradient(circle,#7fb3ff33,transparent_70%)] dark:bg-[radial-gradient(circle,#3b82f633,transparent_70%)] blur-3xl" />
 
-            <div className="relative w-full max-w-4xl rounded-[18px] border border-[#7fa6f7] bg-white/90 backdrop-blur-sm shadow-[0_18px_40px_rgba(40,94,173,0.25)] overflow-hidden md:grid md:grid-cols-[1fr,1.1fr]">
-                <div className="bg-gradient-to-b from-[#4f82ff] via-[#356ef0] to-[#1f4ebf] text-white px-8 py-10 flex flex-col justify-between">
+            <div className="relative w-full max-w-4xl rounded-[18px] border border-[#7fa6f7] dark:border-zinc-700 bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm shadow-[0_18px_40px_rgba(40,94,173,0.25)] dark:shadow-[0_18px_40px_rgba(0,0,0,0.5)] overflow-hidden md:grid md:grid-cols-[1fr,1.1fr]">
+                <div className="bg-gradient-to-b from-[#4f82ff] via-[#356ef0] to-[#1f4ebf] dark:from-zinc-700 dark:via-zinc-800 dark:to-zinc-900 text-white px-8 py-10 flex flex-col justify-between">
                     <div className="flex items-center gap-4">
                         <div className="relative w-16 h-16">
                             <span className="absolute inset-0 rounded-full bg-white/35 backdrop-blur-sm" />

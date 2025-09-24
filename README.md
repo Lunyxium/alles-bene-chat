@@ -26,6 +26,25 @@ zu schreiben.
 
 ------------------------------------------------------------------------
 
+## 🌙 Dark Mode
+
+The app includes a fully functional dark mode toggle with the following features:
+
+-   **Automatic Theme Detection**: Uses system preference (`prefers-color-scheme`) on first load
+-   **Persistent Storage**: Theme preference is saved to `localStorage`
+-   **Flash Prevention**: Inline script in `index.html` sets theme before React mounts
+-   **Accessible Toggle**: Theme toggle button with proper ARIA labels and sun/moon icons
+-   **TypeScript Support**: Type-safe theme utilities, no `any` types used
+
+### Usage
+
+The theme toggle appears in the navigation bar. Users can:
+1. Click the theme toggle button (sun/moon icon) to switch modes
+2. Theme preference is automatically saved and persisted across sessions
+3. On first visit, the app respects the user's system theme preference
+
+------------------------------------------------------------------------
+
 ## 👥 Team
 
 -   **Imad**
