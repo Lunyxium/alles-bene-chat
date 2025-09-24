@@ -22,7 +22,8 @@ import {
     serializeToMarkdown,
     saveSelection,
     restoreSelection,
-    insertAtCursor,
+    insertEmoji,
+    insertText,
     toggleWrap,
     getCurrentParagraph,
     caretAtParagraphStart,
@@ -69,6 +70,13 @@ export function ChatBar() {
         if (!isMuted) sounds[sound].play()
     }, [])
 
+    const updateForm = useCallback(() => {
+        const el = contentEditableRef.current
+        if (!el) return
+        const markdown = serializeToMarkdown(el)
+        form.setValue('text', markdown, { shouldValidate: false, shouldDirty: true })
+    }, [form])
+
     // ==================== INITIALIZATION ====================
     useEffect(() => {
         const el = contentEditableRef.current
@@ -76,44 +84,12 @@ export function ChatBar() {
 
         normalizeInputDOM(el)
 
-        // Ensure at least one paragraph exists
         if (el.childNodes.length === 0) {
             const p = document.createElement('div')
             p.setAttribute('data-paragraph', '1')
             p.appendChild(document.createElement('br'))
             el.appendChild(p)
         }
-    }, [])
-
-    // ==================== DOM OBSERVER ====================
-    useEffect(() => {
-        const el = contentEditableRef.current
-        if (!el) return
-
-        let pending = false
-        const obs = new MutationObserver(() => {
-            if (pending) return
-            pending = true
-            queueMicrotask(() => {
-                const saved = window.getSelection()?.rangeCount ?
-                    window.getSelection()!.getRangeAt(0).cloneRange() : null
-                normalizeInputDOM(el)
-                if (saved) {
-                    const sel = window.getSelection()
-                    sel?.removeAllRanges()
-                    sel?.addRange(saved)
-                }
-                pending = false
-            })
-        })
-
-        obs.observe(el, {
-            childList: true,
-            characterData: true,
-            subtree: true
-        })
-
-        return () => obs.disconnect()
     }, [])
 
     // ==================== MESSAGE HANDLING ====================
@@ -153,15 +129,9 @@ export function ChatBar() {
 
     // ==================== EVENT HANDLERS ====================
     const handleInput = useCallback(() => {
-        const el = contentEditableRef.current
-        if (!el) return
-
-        lastSelectionRef.current = saveSelection(el)
-        normalizeInputDOM(el)
-        const markdown = serializeToMarkdown(el)
-        form.setValue('text', markdown, { shouldValidate: false, shouldDirty: true })
-        restoreSelection(el, lastSelectionRef.current, false)
-    }, [form])
+        lastSelectionRef.current = saveSelection(contentEditableRef.current!)
+        updateForm()
+    }, [updateForm])
 
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
         const el = contentEditableRef.current
@@ -177,7 +147,7 @@ export function ChatBar() {
                     prev.remove()
                     setCaretAtParagraphStart(p)
                     normalizeInputDOM(el)
-                    form.setValue('text', serializeToMarkdown(el), { shouldValidate: false })
+                    updateForm()
                     return
                 }
             }
@@ -193,7 +163,7 @@ export function ChatBar() {
                     next.remove()
                     setCaretAtParagraphStart(p)
                     normalizeInputDOM(el)
-                    form.setValue('text', serializeToMarkdown(el), { shouldValidate: false })
+                    updateForm()
                     return
                 }
             }
@@ -215,7 +185,7 @@ export function ChatBar() {
             else if (key === 's') { e.preventDefault(); applyMarkdown(WRAPS.strike) }
             else if (key === 'e') { e.preventDefault(); applyMarkdown(WRAPS.code) }
         }
-    }, [form, onSend])
+    }, [onSend, updateForm])
 
     const handlePaste = useCallback((e: React.ClipboardEvent) => {
         e.preventDefault()
@@ -223,10 +193,10 @@ export function ChatBar() {
         if (!el) return
 
         const text = e.clipboardData.getData('text/plain')
-        insertAtCursor(el, text, lastSelectionRef.current)
+        insertText(el, text, lastSelectionRef.current)
         normalizeInputDOM(el)
-        form.setValue('text', serializeToMarkdown(el), { shouldValidate: false })
-    }, [form])
+        updateForm()
+    }, [updateForm])
 
     // ==================== MARKDOWN HELPERS ====================
     const applyMarkdown = useCallback((wrap: [string, string]) => {
@@ -238,8 +208,9 @@ export function ChatBar() {
 
         const sel = window.getSelection()
         if (!sel || sel.rangeCount === 0) {
-            insertAtCursor(el, wrap[0] + wrap[1], lastSelectionRef.current)
+            insertText(el, wrap[0] + wrap[1], lastSelectionRef.current)
             normalizeInputDOM(el)
+            updateForm()
             return
         }
 
@@ -260,25 +231,83 @@ export function ChatBar() {
             range.deleteContents()
             range.insertNode(document.createTextNode(replacement))
         } else {
-            // Toggle wrap pairs
-            const replacement = toggleWrap(selected, wrap)
-            range.deleteContents()
-            const textNode = document.createTextNode(replacement)
-            range.insertNode(textNode)
+            // FIXED: Preserve surrounding context to avoid eating whitespace
+            // Get expanded range that includes preceding/following context
+            const expandedRange = range.cloneRange()
 
-            // Select the content without markers
-            const newRange = document.createRange()
-            const startOffset = replacement.startsWith(wrap[0]) ? wrap[0].length : 0
-            const endOffset = replacement.endsWith(wrap[1]) ? replacement.length - wrap[1].length : replacement.length
-            newRange.setStart(textNode, startOffset)
-            newRange.setEnd(textNode, endOffset)
-            sel.removeAllRanges()
-            sel.addRange(newRange)
+            // Expand to include any whitespace before/after selection
+            if (range.startContainer.nodeType === Node.TEXT_NODE) {
+                const textBefore = range.startContainer.textContent || ''
+                const beforeSelection = textBefore.substring(0, range.startOffset)
+
+                // Don't expand if we're already at word boundary or start
+                if (beforeSelection.length > 0 && !/\s$/.test(beforeSelection)) {
+                    // We're in middle of text, don't expand
+                }
+            }
+
+            // Toggle wrap pairs - now preserving the original selection precisely
+            const replacement = toggleWrap(selected, wrap)
+
+            // Create marker elements to preserve cursor position
+            const startMarker = document.createElement('span')
+            startMarker.setAttribute('data-start-marker', 'true')
+            startMarker.style.display = 'none'
+
+            const endMarker = document.createElement('span')
+            endMarker.setAttribute('data-end-marker', 'true')
+            endMarker.style.display = 'none'
+
+            // Insert markers to preserve position
+            range.insertNode(endMarker)
+            range.insertNode(document.createTextNode(replacement))
+            range.insertNode(startMarker)
+
+            // Set selection to the content between markers (excluding the wrap chars)
+            const startMarkerEl = el.querySelector('[data-start-marker="true"]')
+            const endMarkerEl = el.querySelector('[data-end-marker="true"]')
+
+            if (startMarkerEl && endMarkerEl) {
+                const newRange = document.createRange()
+
+                if (replacement.startsWith(wrap[0]) && replacement.endsWith(wrap[1])) {
+                    // Text was wrapped - select content between wrap chars
+                    const contentStart = startMarkerEl.nextSibling
+                    const contentEnd = endMarkerEl.previousSibling
+
+                    if (contentStart && contentEnd) {
+                        if (contentStart.nodeType === Node.TEXT_NODE) {
+                            newRange.setStart(contentStart, wrap[0].length)
+                        } else {
+                            newRange.setStartAfter(contentStart)
+                        }
+
+                        if (contentEnd.nodeType === Node.TEXT_NODE) {
+                            const textContent = contentEnd.textContent || ''
+                            newRange.setEnd(contentEnd, Math.max(0, textContent.length - wrap[1].length))
+                        } else {
+                            newRange.setEndBefore(contentEnd)
+                        }
+                    }
+                } else {
+                    // Text was unwrapped - select all content
+                    newRange.setStartAfter(startMarkerEl)
+                    newRange.setEndBefore(endMarkerEl)
+                }
+
+                sel.removeAllRanges()
+                sel.addRange(newRange)
+
+                // Clean up markers
+                startMarkerEl.remove()
+                endMarkerEl.remove()
+            }
         }
 
         normalizeInputDOM(el)
         lastSelectionRef.current = saveSelection(el)
-    }, [])
+        updateForm()
+    }, [updateForm])
 
     // ==================== GIF HANDLING ====================
     const insertGif = useCallback((url: string) => {
@@ -294,7 +323,7 @@ export function ChatBar() {
         }
 
         el.focus()
-        if (lastSelectionRef.current) restoreSelection(el, lastSelectionRef.current, false)
+        if (lastSelectionRef.current) restoreSelection(el, lastSelectionRef.current)
 
         const sel = window.getSelection()
         if (!sel) return
@@ -343,8 +372,8 @@ export function ChatBar() {
         sel.addRange(newRange)
 
         normalizeInputDOM(el)
-        form.setValue('text', serializeToMarkdown(el), { shouldValidate: false })
-    }, [form])
+        updateForm()
+    }, [updateForm])
 
     const sendWakeUp = async () => {
         if (!auth.currentUser) return
@@ -372,7 +401,10 @@ export function ChatBar() {
     // ==================== POPUP MANAGEMENT ====================
     const handlePopupToggle = useCallback((type: 'emoji' | 'gif' | 'format') => {
         const el = contentEditableRef.current
-        if (el) lastSelectionRef.current = saveSelection(el)
+        if (el) {
+            // Save selection but DON'T restore it - let it stay visible
+            lastSelectionRef.current = saveSelection(el)
+        }
 
         if (type === 'emoji') {
             setShowEmojis(v => !v)
@@ -387,11 +419,7 @@ export function ChatBar() {
             setShowEmojis(false)
             setShowGifs(false)
         }
-
-        setTimeout(() => {
-            el?.focus()
-            if (el) restoreSelection(el, lastSelectionRef.current, true)
-        }, 10)
+        // DON'T mess with focus or selection here
     }, [])
 
     // Close popups on outside click
@@ -417,14 +445,27 @@ export function ChatBar() {
             <FormatHelper
                 isOpen={showFormatting}
                 onClose={() => setShowFormatting(false)}
-                onFormatSelect={applyMarkdown}
+                onFormatSelect={(wrap) => {
+                    // Use saved selection if available, otherwise current selection
+                    if (lastSelectionRef.current && lastSelectionRef.current.text.length > 0) {
+                        const el = contentEditableRef.current
+                        if (el) {
+                            restoreSelection(el, lastSelectionRef.current)
+                        }
+                    }
+                    applyMarkdown(wrap)
+                    setShowFormatting(false)
+                }}
             />
 
             {/* GIF Picker */}
             <GifPicker
                 isOpen={showGifs}
                 onClose={() => setShowGifs(false)}
-                onGifSelect={insertGif}
+                onGifSelect={(url) => {
+                    insertGif(url)
+                    setShowGifs(false)
+                }}
             />
 
             {/* Emoji Picker */}
@@ -434,9 +475,23 @@ export function ChatBar() {
                 onSelect={(emoji) => {
                     const el = contentEditableRef.current
                     if (!el) return
-                    insertAtCursor(el, emoji, lastSelectionRef.current)
-                    normalizeInputDOM(el)
-                    form.setValue('text', serializeToMarkdown(el), { shouldValidate: false })
+
+                    // If we have saved selection with text, replace it
+                    if (lastSelectionRef.current && lastSelectionRef.current.text.length > 0) {
+                        restoreSelection(el, lastSelectionRef.current)
+                        const sel = window.getSelection()
+                        if (sel && sel.rangeCount > 0) {
+                            const range = sel.getRangeAt(0)
+                            range.deleteContents()
+                            insertEmoji(el, emoji)
+                        }
+                    } else {
+                        // No selection, just insert at cursor
+                        insertEmoji(el, emoji)
+                    }
+
+                    updateForm()
+                    setShowEmojis(false)
                 }}
             />
 

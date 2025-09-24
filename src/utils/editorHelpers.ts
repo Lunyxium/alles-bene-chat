@@ -10,25 +10,18 @@ export function isEmojiTextNode(node: Node): boolean {
 }
 
 export function wrapEmojisInNode(root: HTMLElement): void {
-    // Remove existing emoji spans first (keep idempotent)
-    const oldSpans = root.querySelectorAll(`span.${EMOJI_SPAN_CLASS}`)
-    oldSpans.forEach((span) => {
-        const parent = span.parentNode
-        if (parent) {
-            parent.replaceChild(document.createTextNode(span.textContent || ''), span)
-        }
-    })
-
-    // Find all text nodes that need emoji wrapping
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null)
     const targets: Text[] = []
     let node: Node | null
 
     while ((node = walker.nextNode())) {
-        // Skip text in non-editable blocks
-        const el = (node.parentElement as HTMLElement) || null
-        if (el?.closest?.(`.${GIF_BLOCK_CLASS}`)) continue
-        if (isEmojiTextNode(node)) targets.push(node as Text)
+        const parent = node.parentElement
+        if (parent?.classList?.contains(EMOJI_SPAN_CLASS)) continue
+        if (parent?.closest?.(`.${GIF_BLOCK_CLASS}`)) continue
+
+        if (isEmojiTextNode(node)) {
+            targets.push(node as Text)
+        }
     }
 
     const regex = emojiRegex()
@@ -52,7 +45,9 @@ export function wrapEmojisInNode(root: HTMLElement): void {
             const span = document.createElement('span')
             span.className = EMOJI_SPAN_CLASS
             span.textContent = emoji
+            span.contentEditable = 'false'
             frag.appendChild(span)
+
             lastIndex = index + emoji.length
         }
 
@@ -88,7 +83,6 @@ export function normalizeGifImages(root: HTMLElement): void {
             wrapper.appendChild(img)
         }
 
-        // Ensure there's an editable paragraph after the GIF
         const after = wrapper.nextSibling
         const needParagraph = !after || !(
             (after as HTMLElement).nodeType === Node.ELEMENT_NODE &&
@@ -124,7 +118,6 @@ export function serializeToMarkdown(root: HTMLElement): string {
         if (node.nodeType === Node.ELEMENT_NODE) {
             const el = node as HTMLElement
 
-            // Handle GIF blocks
             if (el.classList.contains(GIF_BLOCK_CLASS)) {
                 const img = el.querySelector('img') as HTMLImageElement | null
                 if (img?.dataset.gif && img.src) {
@@ -133,36 +126,30 @@ export function serializeToMarkdown(root: HTMLElement): string {
                 return
             }
 
-            // Handle inline GIFs (fallback)
             if (el.tagName === 'IMG' && (el as HTMLImageElement).dataset.gif) {
                 const src = (el as HTMLImageElement).src
                 if (src) output += `![](${src})\n`
                 return
             }
 
-            // Handle emoji spans
             if (el.classList.contains(EMOJI_SPAN_CLASS)) {
                 output += el.textContent || ''
                 return
             }
 
-            // Handle line breaks
             if (el.tagName === 'BR') {
                 output += '\n'
                 return
             }
 
-            // Handle paragraphs
             if (el.tagName === 'DIV' && el.getAttribute('data-paragraph') === '1') {
                 el.childNodes.forEach(walk)
                 output += '\n'
                 return
             }
 
-            // Default: traverse children
             el.childNodes.forEach(walk)
 
-            // Add newline for block elements
             if (/^(DIV|P)$/.test(el.tagName)) {
                 output += '\n'
             }
@@ -200,17 +187,15 @@ export function saveSelection(element: HTMLElement): Selection | null {
     return { start, end, text: selectedText }
 }
 
-export function restoreSelection(element: HTMLElement, savedSelection: Selection | null, selectText = false): void {
+export function restoreSelection(element: HTMLElement, savedSelection: Selection | null): void {
     if (!element || !savedSelection) return
 
-    const { start, end } = savedSelection
+    const { start } = savedSelection
     const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null)
 
     let currentPos = 0
     let startNode: Node | null = null
     let startOffset = 0
-    let endNode: Node | null = null
-    let endOffset = 0
 
     let node: Node | null
     while ((node = walker.nextNode())) {
@@ -219,10 +204,6 @@ export function restoreSelection(element: HTMLElement, savedSelection: Selection
         if (!startNode && currentPos + len >= start) {
             startNode = node
             startOffset = start - currentPos
-        }
-        if (!endNode && currentPos + len >= end) {
-            endNode = node
-            endOffset = end - currentPos
             break
         }
         currentPos += len
@@ -232,12 +213,7 @@ export function restoreSelection(element: HTMLElement, savedSelection: Selection
         const range = document.createRange()
         const sel = window.getSelection()
         range.setStart(startNode, Math.min(startOffset, startNode.textContent?.length || 0))
-
-        if (selectText && endNode && start !== end) {
-            range.setEnd(endNode, Math.min(endOffset, endNode.textContent?.length || 0))
-        } else {
-            range.collapse(true)
-        }
+        range.collapse(true)
 
         sel?.removeAllRanges()
         sel?.addRange(range)
@@ -247,7 +223,7 @@ export function restoreSelection(element: HTMLElement, savedSelection: Selection
 // ==================== TEXT MANIPULATION ====================
 export function toggleWrap(text: string, [left, right]: WrapPair): string {
     const startsWithLeft = text.startsWith(left)
-    const endsWithRight = right ? text.endsWith(right) : false
+    const endsWithRight = right && text.endsWith(right)
 
     if (startsWithLeft && endsWithRight) {
         return text.slice(left.length, text.length - right.length)
@@ -255,11 +231,9 @@ export function toggleWrap(text: string, [left, right]: WrapPair): string {
     return left + text + right
 }
 
-export function insertAtCursor(editor: HTMLElement, text: string, savedSelection?: Selection | null): void {
+// ==================== EMOJI INSERTION WITH CURSOR FIX ====================
+export function insertEmoji(editor: HTMLElement, emoji: string): void {
     editor.focus()
-    if (savedSelection) {
-        restoreSelection(editor, savedSelection, false)
-    }
 
     const sel = window.getSelection()
     if (!sel) return
@@ -274,7 +248,7 @@ export function insertAtCursor(editor: HTMLElement, text: string, savedSelection
         range = sel.getRangeAt(0)
     }
 
-    // If range is in GIF block, move cursor after it
+    // If we're in a GIF block, move to the next paragraph
     const gifBlock = (range.startContainer as HTMLElement).closest?.(`.${GIF_BLOCK_CLASS}`)
     if (gifBlock?.parentElement) {
         const after = gifBlock.nextSibling
@@ -289,10 +263,58 @@ export function insertAtCursor(editor: HTMLElement, text: string, savedSelection
         }
     }
 
+    // Insert raw emoji text
+    const textNode = document.createTextNode(emoji)
+    range.deleteContents()
+    range.insertNode(textNode)
+
+    // Create an invisible marker element that will survive normalization
+    const marker = document.createElement('span')
+    marker.style.display = 'none'
+    marker.setAttribute('data-cursor-marker', 'true')
+    textNode.after(marker)
+
+    // Run normalization which converts text emoji to spans
+    normalizeInputDOM(editor)
+
+    // Find our marker and position cursor right before it
+    const markerElement = editor.querySelector('[data-cursor-marker="true"]')
+    if (markerElement) {
+        const newRange = document.createRange()
+        newRange.setStartBefore(markerElement)
+        newRange.collapse(true)
+        sel.removeAllRanges()
+        sel.addRange(newRange)
+
+        // Clean up the marker
+        markerElement.remove()
+    }
+}
+
+// ==================== TEXT INSERTION ====================
+export function insertText(editor: HTMLElement, text: string, savedSelection?: Selection | null): void {
+    editor.focus()
+
+    const sel = window.getSelection()
+    if (!sel) return
+
+    let range: Range
+    if (savedSelection) {
+        restoreSelection(editor, savedSelection)
+        if (sel.rangeCount === 0) return
+        range = sel.getRangeAt(0)
+    } else if (sel.rangeCount === 0) {
+        range = document.createRange()
+        range.selectNodeContents(editor)
+        range.collapse(false)
+        sel.addRange(range)
+    } else {
+        range = sel.getRangeAt(0)
+    }
+
     range.deleteContents()
     const textNode = document.createTextNode(text)
     range.insertNode(textNode)
-
     range.setStartAfter(textNode)
     range.setEndAfter(textNode)
     sel.removeAllRanges()
@@ -308,6 +330,8 @@ export function getCurrentParagraph(el: HTMLElement): HTMLElement | null {
     if (node.nodeType === Node.TEXT_NODE) {
         node = node.parentNode as Node
     }
+
+    if (!el.contains(node as Node)) return null
 
     return (node as HTMLElement).closest?.('[data-paragraph="1"]') as HTMLElement | null
 }
@@ -352,7 +376,6 @@ export function setCaretAtParagraphStart(p: HTMLElement): void {
     sel?.addRange(range)
 }
 
-// ==================== UTILITY ====================
 export function escapeRegExp(str: string): string {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }

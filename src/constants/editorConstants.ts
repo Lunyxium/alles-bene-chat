@@ -78,15 +78,19 @@ export const FORMAT_OPTIONS: FormatOption[] = [
 // ==================== STYLES ====================
 export const EMOJI_INPUT_STYLES = `
     .${EMOJI_SPAN_CLASS} {
-        display: inline-block;
-        line-height: 1;
-        font-size: 2.2em;
-        vertical-align: -0.2em;
+        display: inline-block !important;
+        font-size: 1.8em !important;
+        line-height: 1 !important;
+        vertical-align: middle !important;
+        margin: 0 2px !important;
+        user-select: none !important;
+        pointer-events: none !important;
     }
     
     .${GIF_BLOCK_CLASS} {
         display: block;
         margin: 6px 0;
+        user-select: none;
     }
     
     img.${GIF_CLASS} {
@@ -94,6 +98,7 @@ export const EMOJI_INPUT_STYLES = `
         max-height: 180px;
         max-width: 100%;
         border-radius: 0.5rem;
+        user-select: none;
     }
     
     [data-paragraph="1"] {

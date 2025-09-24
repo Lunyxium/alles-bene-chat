@@ -28,7 +28,7 @@ interface Message {
 // Track which messages already played sounds
 const playedMessages = new Set<string>()
 
-// Rich-Text Parser with BIGGER Emojis and GIF support
+// Rich-Text Parser with BIGGER Emojis and GIF support + FIXED ITALIC
 function parseRichText(text: string): React.ReactNode {
     // Escape HTML first
     const escapeHtml = (str: string) => {
@@ -40,7 +40,6 @@ function parseRichText(text: string): React.ReactNode {
     let formatted = escapeHtml(text)
 
     // Parse GIF URLs FIRST (before other formatting)
-    // Unterstützt Tenor GIFs und andere gängige GIF URLs
     formatted = formatted.replace(
         /(https?:\/\/[^\s]+\.gif(?:\?[^\s]*)?|https?:\/\/(?:tenor\.com|media\.tenor\.com|media\.giphy\.com|i\.giphy\.com)[^\s]+)/gi,
         '<img src="$1" alt="GIF" style="max-width: 300px; max-height: 300px; border-radius: 8px; display: block; margin: 8px 0;" />'
@@ -53,8 +52,9 @@ function parseRichText(text: string): React.ReactNode {
     // Bold (must come before italic to handle **text* correctly)
     formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
 
-    // Italic
+    // FIXED: Italic - support both * and _ syntax
     formatted = formatted.replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    formatted = formatted.replace(/_([^_]+)_/g, '<em>$1</em>')
 
     // Strikethrough
     formatted = formatted.replace(/~~([^~]+)~~/g, '<span style="text-decoration: line-through">$1</span>')
@@ -66,7 +66,6 @@ function parseRichText(text: string): React.ReactNode {
     formatted = formatted.replace(/^- (.+)$/gm, '<div class="pl-4">• $1</div>')
 
     // Make ONLY emoji characters MUCH MUCH bigger (NOT numbers, letters or regular text)
-    // Präzisere Regex die keine Zahlen erfasst - jetzt mit 32px statt 24px!
     formatted = formatted.replace(
         /([\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{27BF}](?![\d])|[\u{1FA70}-\u{1FAFF}]|[\u{1F000}-\u{1F02F}]|[\u{1F0A0}-\u{1F0FF}]|[\u{1F100}-\u{1F1FF}])/gu,
         '<span style="font-size: 32px; line-height: 1; vertical-align: middle; display: inline-block;">$1</span>'
@@ -96,16 +95,13 @@ export function ChatBubble({ msg }: { msg: Message }) {
         })
 
         if (messageDay.getTime() === today.getTime()) {
-            // Today - just show time
             return timeString
         } else if (messageDay.getTime() === yesterday.getTime()) {
-            // Yesterday
             return `Gestern, ${timeString}`
         } else {
-            // Older - show date with month name for better readability
             const dateString = date.toLocaleDateString('de-DE', {
                 day: 'numeric',
-                month: 'short'  // Jan, Feb, Mär, etc.
+                month: 'short'
             })
             return `${dateString} • ${timeString}`
         }
@@ -116,25 +112,20 @@ export function ChatBubble({ msg }: { msg: Message }) {
 
     // Play sounds only for NEW messages
     useEffect(() => {
-        // Check if sounds are muted
         const isMuted = localStorage.getItem('soundsMuted') === 'true'
 
-        // Don't play if already played or muted
         if (playedMessages.has(msg.id) || isMuted) {
             return
         }
 
-        // Only play sounds for messages less than 5 seconds old
         const messageAge = msg.createdAt?.toDate?.() || new Date()
         const now = new Date()
         const ageInSeconds = (now.getTime() - messageAge.getTime()) / 1000
 
-        if (ageInSeconds < 5) {  // Only play for fresh messages
+        if (ageInSeconds < 5) {
             if (msg.type === 'wakeup') {
-                // Play wake up sound for everyone
                 sounds.wakeup.play()
 
-                // Shake animation
                 if (bubbleRef.current) {
                     bubbleRef.current.classList.add('animate-bounce')
                     setTimeout(() => {
@@ -142,11 +133,9 @@ export function ChatBubble({ msg }: { msg: Message }) {
                     }, 1000)
                 }
             } else if (msg.type === 'message' && msg.userId !== auth.currentUser?.uid) {
-                // Play received sound for messages from others
                 sounds.received.play()
             }
 
-            // Mark as played
             playedMessages.add(msg.id)
         }
     }, [msg.id, msg.type, msg.userId, msg.createdAt])
@@ -178,13 +167,13 @@ export function ChatBubble({ msg }: { msg: Message }) {
         return (
             <div className="text-center py-2 animate-pulse">
                 <span className="inline-block px-3 py-1 bg-[#FFF3E0] rounded-full text-xs text-[#FF6B00] font-bold">
-                    🔔 {msg.nickname} {msg.text}
+                    📢 {msg.nickname} {msg.text}
                 </span>
             </div>
         )
     }
 
-    // Regular messages - MSN Style with Rich Text and proper text size
+    // Regular messages - MSN Style with Rich Text
     return (
         <div className={`my-1 flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[70%] flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'}`}>
@@ -201,7 +190,6 @@ export function ChatBubble({ msg }: { msg: Message }) {
                         ? 'bg-gradient-to-br from-[#E3F2FD] to-[#BBDEFB] text-black'
                         : 'bg-white border border-[#D1D5DB] text-black'
                 }`}>
-                    {/* Text mit normaler Schriftgröße, nur Emojis sind größer */}
                     <div className="text-sm break-words text-left" style={{ lineHeight: '1.5' }}>
                         {parseRichText(msg.text)}
                     </div>
