@@ -78,10 +78,10 @@ export function ChatBoard() {
     return (
         <div
             data-chat-window
-            className="flex h-[460px] flex-col overflow-hidden bg-gradient-to-b from-[#f7faff] to-[#eef3ff]"
+            className="flex h-[60vh] max-h-[70vh] flex-col overflow-hidden bg-gradient-to-b from-[#f7faff] to-[#eef3ff] md:h-[460px] md:max-h-none"
         >
             {/* Chat Header */}
-            <div className="bg-gradient-to-r from-[#eaf1ff] via-[#dfe9ff] to-[#eaf1ff] px-4 py-3 border-b border-[#c7d9ff] flex items-center justify-between">
+            <div className="flex items-center justify-between border-b border-[#c7d9ff] bg-gradient-to-r from-[#eaf1ff] via-[#dfe9ff] to-[#eaf1ff] px-4 py-3">
                 <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full border border-[#9eb8ff] bg-white/80 flex items-center justify-center text-[#0a4bdd] text-sm">
                         💬
@@ -106,7 +106,7 @@ export function ChatBoard() {
             {/* Messages Area */}
             <div
                 ref={chatContainerRef}
-                className="flex-1 overflow-y-auto px-5 py-4 space-y-2"
+                className="flex-1 overflow-y-auto px-4 py-3 space-y-2 md:px-5 md:py-4"
                 style={{
                     backgroundImage: 'linear-gradient(135deg, rgba(122,150,223,0.06) 25%, transparent 25%, transparent 50%, rgba(122,150,223,0.06) 50%, rgba(122,150,223,0.06) 75%, transparent 75%, transparent)',
                     backgroundSize: '40px 40px'
@@ -125,8 +125,8 @@ export function ChatBoard() {
             </div>
 
             {/* Typing Indicator / Status with Sound Toggle */}
-            <div className="px-4 py-2 bg-gradient-to-r from-[#eaf1ff] to-[#dfe9ff] border-t border-[#c7d9ff] text-[11px] text-[#5b6ea5] flex items-center justify-between">
-                <span>Tippe eine Nachricht oder sende ein Wake up! ⚡</span>
+            <div className="flex items-center justify-between border-t border-[#c7d9ff] bg-gradient-to-r from-[#eaf1ff] to-[#dfe9ff] px-3 py-2 text-[11px] text-[#5b6ea5] md:px-4">
+                <span className="truncate pr-2">Tippe eine Nachricht oder sende ein Wake up! ⚡</span>
                 <button
                     onClick={toggleSounds}
                     className="flex items-center gap-1 px-2 py-0.5 rounded hover:bg-white/30 transition-colors"

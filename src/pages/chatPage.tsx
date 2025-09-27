@@ -51,6 +51,7 @@ export function ChatPage() {
     const [showLogoutDialog, setShowLogoutDialog] = useState(false)
     const [isLoggingOut, setIsLoggingOut] = useState(false)
     const [currentDisplayName, setCurrentDisplayName] = useState('')
+    const [showMobileUsers, setShowMobileUsers] = useState(false)
     // Collapse states für die Sections
     const [collapsedSections, setCollapsedSections] = useState({
         awake: false,
@@ -63,7 +64,15 @@ export function ChatPage() {
 
     // Verhindere Page-Scrolling
     useEffect(() => {
-        // Fixiere das Viewport
+        if (typeof window === 'undefined') {
+            return
+        }
+
+        // Fixiere das Viewport nur auf größeren Screens, damit Mobile frei scrollen kann
+        if (window.innerWidth < 768) {
+            return
+        }
+
         document.body.style.overflow = 'hidden'
         document.body.style.height = '100vh'
 
@@ -670,26 +679,28 @@ export function ChatPage() {
         </div>
     )
 
+    const totalUsers = awakeUsers.length + idleUsers.length + goneUsers.length
+
     return (
         <div
             ref={containerRef}
-            className="fixed inset-0 bg-gradient-to-br from-[#9ecdfb] via-[#c2dcff] to-[#f1f6ff] overflow-auto"
+            className="relative min-h-[100dvh] bg-gradient-to-br from-[#9ecdfb] via-[#c2dcff] to-[#f1f6ff] overflow-x-hidden md:overflow-hidden"
             style={{ fontFamily: 'Tahoma, Verdana, sans-serif' }}
         >
             {/* Background Effects */}
             <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                <div className="absolute -top-24 -left-24 w-[380px] h-[380px] bg-[radial-gradient(circle,#ffffff75,transparent_70%)] blur-2xl" />
-                <div className="absolute top-20 right-10 w-[320px] h-[320px] bg-[radial-gradient(circle,#7fa6ff4d,transparent_70%)] blur-2xl" />
-                <div className="absolute bottom-[-160px] left-1/3 w-[420px] h-[420px] bg-[radial-gradient(circle,#c7d9ff80,transparent_70%)] blur-3xl" />
+                <div className="absolute -top-24 -left-24 hidden h-[320px] w-[320px] bg-[radial-gradient(circle,#ffffff75,transparent_70%)] blur-2xl sm:block" />
+                <div className="absolute top-24 right-10 hidden h-[280px] w-[280px] bg-[radial-gradient(circle,#7fa6ff4d,transparent_70%)] blur-2xl md:block" />
+                <div className="absolute bottom-[-160px] left-1/3 hidden h-[360px] w-[360px] bg-[radial-gradient(circle,#c7d9ff80,transparent_70%)] blur-3xl md:block" />
             </div>
 
             {/* Main Content Container */}
-            <div className="relative min-h-screen flex items-center justify-center p-4">
-                <div className="w-full max-w-6xl">
-                    <div className="relative rounded-[20px] border border-[#7fa6f7] bg-white/90 backdrop-blur-sm shadow-[0_20px_45px_rgba(40,94,173,0.28)] overflow-hidden">
-                        <div className="relative bg-[#f9fbff]/95">
+            <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-6xl flex-col px-3 py-4 sm:px-4 md:px-6 md:py-8">
+                <div className="flex-1 md:flex md:items-center md:justify-center">
+                    <div className="relative w-full rounded-[20px] border border-[#7fa6f7] bg-white/95 backdrop-blur-sm shadow-[0_20px_45px_rgba(40,94,173,0.28)] md:overflow-hidden">
+                        <div className="relative flex min-h-[70vh] flex-col bg-[#f9fbff]/95 md:min-h-0">
                             {/* Header */}
-                            <div className="bg-gradient-to-r from-[#0a4bdd] via-[#2a63f1] to-[#0a4bdd] px-5 py-3 text-white flex items-center justify-between">
+                            <div className="flex items-center gap-4 bg-gradient-to-r from-[#0a4bdd] via-[#2a63f1] to-[#0a4bdd] px-4 py-3 text-white md:px-5">
                                 <div className="flex items-center gap-3">
                                     <div className="w-9 h-9 rounded-full border border-white/40 bg-white/20 backdrop-blur-sm flex items-center justify-center text-lg">
                                         💬
@@ -701,7 +712,7 @@ export function ChatPage() {
                                         </h1>
                                     </div>
                                 </div>
-                                <div className="hidden md:flex items-center gap-3 text-xs text-[#d7e6ff]">
+                                <div className="ml-auto hidden items-center gap-3 text-xs text-[#d7e6ff] md:flex">
                                     <span className="inline-flex items-center gap-1">
                                         <CircleDot className="w-3 h-3" strokeWidth={3} style={{ color: '#4CAF50' }} />
                                         {awakeUsers.length} awake
@@ -712,54 +723,67 @@ export function ChatPage() {
                                         {idleUsers.length} idle
                                     </span>
                                 </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowMobileUsers((val) => !val)}
+                                    className="ml-auto inline-flex items-center gap-1 rounded-full bg-white/20 px-3 py-1.5 text-[11px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] transition md:hidden"
+                                >
+                                    <Users className="h-4 w-4" strokeWidth={2.5} />
+                                    <span>{totalUsers} Nutzer</span>
+                                    {showMobileUsers ? (
+                                        <ChevronsUp className="h-4 w-4" strokeWidth={2.5} />
+                                    ) : (
+                                        <ChevronsDown className="h-4 w-4" strokeWidth={2.5} />
+                                    )}
+                                </button>
                             </div>
 
-                            <div className="px-5 py-5 md:px-6 md:py-6 md:grid md:grid-cols-[minmax(0,1fr)_280px] md:gap-6 md:items-start">
-                                <div className="flex flex-col gap-4">
-                                    <div className="bg-white rounded-[16px] border border-[#7a96df] shadow-[0_12px_30px_rgba(58,92,173,0.15)] overflow-hidden">
+                            <div className="flex flex-1 flex-col gap-4 px-4 pb-5 pt-4 md:grid md:grid-cols-[minmax(0,1fr)_280px] md:gap-6 md:px-6 md:pb-6 md:pt-5">
+                                <div className="relative flex min-h-[50vh] flex-col gap-3 md:min-h-0 md:gap-4">
+                                    <div className="flex-1 overflow-hidden rounded-[16px] border border-[#7a96df] bg-white shadow-[0_12px_30px_rgba(58,92,173,0.15)]">
                                         <ChatBoard />
                                     </div>
-                                    <div className="bg-white rounded-[14px] border border-[#7a96df] shadow-[0_10px_20px_rgba(58,92,173,0.12)] overflow-visible">
+                                    <div className="sticky bottom-2 z-20 overflow-hidden rounded-[14px] border border-[#7a96df] bg-white/95 shadow-[0_10px_20px_rgba(58,92,173,0.12)] backdrop-blur md:static md:backdrop-blur-none">
                                         <ChatBar />
                                     </div>
 
                                     {/* Mobile User List */}
-                                    <div className="md:hidden mt-2">
-                                        <div className="rounded-[16px] border border-[#7a96df] bg-white/95 shadow-[0_12px_28px_rgba(58,92,173,0.18)] overflow-hidden">
-                                            <div className="bg-gradient-to-r from-[#eaf1ff] to-[#dfe9ff] px-4 py-3 border-b border-[#c7d9ff]">
-                                                <div className="text-sm font-semibold text-[#0a4bdd] flex items-center gap-2">
-                                                    <Users className="w-5 h-5" strokeWidth={3} />
+                                    {showMobileUsers && (
+                                        <div className="md:hidden">
+                                            <div className="rounded-[16px] border border-[#7a96df] bg-white/95 shadow-[0_12px_28px_rgba(58,92,173,0.18)]">
+                                                <div className="flex items-center gap-2 border-b border-[#c7d9ff] bg-gradient-to-r from-[#eaf1ff] to-[#dfe9ff] px-4 py-3 text-sm font-semibold text-[#0a4bdd]">
+                                                    <Users className="h-5 w-5" strokeWidth={3} />
                                                     User Status
                                                 </div>
+                                                <UserStatusList isMobile={true} />
                                             </div>
-                                            <UserStatusList isMobile={true} />
-                                        </div>
 
-                                        <div className="mt-4 grid grid-cols-1 gap-2">
-                                            <button
-                                                onClick={handleInvite}
-                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-1.5 text-[11px] font-medium text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[0.5px] flex items-center justify-center gap-1.5"
-                                            >
-                                                <Share2 className="w-3.5 h-3.5" strokeWidth={2} />
-                                                Invite a Friend
-                                            </button>
-                                            <button
-                                                onClick={handleOpenSettings}
-                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-1.5 text-[11px] font-medium text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[0.5px] flex items-center justify-center gap-1.5"
-                                            >
-                                                <CircleUserRound className="w-3.5 h-3.5" strokeWidth={2} />
-                                                Settings
-                                            </button>
-                                            <button
-                                                onClick={() => setShowLogoutDialog(true)}
-                                                disabled={isLoggingOut}
-                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-1.5 text-[11px] font-medium text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[0.5px] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
-                                            >
-                                                <CirclePower className="w-3.5 h-3.5" strokeWidth={2} />
-                                                {isLoggingOut ? 'Wird abgemeldet...' : 'Logout'}
-                                            </button>
+                                            <div className="mt-3 grid grid-cols-1 gap-2">
+                                                <button
+                                                    onClick={handleInvite}
+                                                    className="flex w-full items-center justify-center gap-1.5 rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-2 text-[11px] font-medium text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[0.5px]"
+                                                >
+                                                    <Share2 className="h-3.5 w-3.5" strokeWidth={2} />
+                                                    Invite a Friend
+                                                </button>
+                                                <button
+                                                    onClick={handleOpenSettings}
+                                                    className="flex w-full items-center justify-center gap-1.5 rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-2 text-[11px] font-medium text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[0.5px]"
+                                                >
+                                                    <CircleUserRound className="h-3.5 w-3.5" strokeWidth={2} />
+                                                    Settings
+                                                </button>
+                                                <button
+                                                    onClick={() => setShowLogoutDialog(true)}
+                                                    disabled={isLoggingOut}
+                                                    className="flex w-full items-center justify-center gap-1.5 rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-2 text-[11px] font-medium text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[0.5px] disabled:cursor-not-allowed disabled:opacity-60"
+                                                >
+                                                    <CirclePower className="h-3.5 w-3.5" strokeWidth={2} />
+                                                    {isLoggingOut ? 'Wird abgemeldet...' : 'Logout'}
+                                                </button>
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
                                 </div>
 
                                 {/* Desktop Sidebar - mit fester Höhe für konsistente Darstellung */}

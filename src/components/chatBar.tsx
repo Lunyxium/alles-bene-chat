@@ -445,13 +445,16 @@ export function ChatBar() {
             />
 
             {/* Main Input Bar */}
-            <div className={`rounded-[12px] overflow-hidden border ${
-                gifLimitHit ? 'gif-limit-hit border-red-300' : 'border-transparent'
-            } bg-white/95 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]`}>
-                <form onSubmit={form.handleSubmit(onSend)} className="flex gap-2 p-3 bg-gradient-to-r from-[#eef3ff] via-[#e6eeff] to-[#eef3ff] items-center">
+            <div className={`overflow-hidden rounded-[14px] border ${
+                gifLimitHit ? 'gif-limit-hit border-red-300' : 'border-[#7a96df]'
+            } bg-white/95 shadow-[0_6px_18px_rgba(58,92,173,0.12)]`}>
+                <form
+                    onSubmit={form.handleSubmit(onSend)}
+                    className="flex flex-col gap-3 p-3 sm:p-4 md:flex-row md:items-start md:gap-3 bg-gradient-to-r from-[#eef3ff] via-[#e6eeff] to-[#eef3ff]"
+                >
 
                     {/* Format/Emoji/GIF Buttons */}
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-wrap gap-2 md:flex-col md:gap-2">
                         <button
                             type="button"
                             data-popup-trigger
@@ -491,7 +494,7 @@ export function ChatBar() {
                         <div
                             ref={contentEditableRef}
                             contentEditable
-                            className="w-full min-h-[96px] max-h-[180px] overflow-y-auto rounded-md border border-[#9eb8ff] bg-white/95 px-3 py-2 pr-12 text-sm text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] focus:outline-none focus:border-[#0a4bdd] focus:ring-2 focus:ring-[#c4d4ff]"
+                            className="w-full min-h-[64px] max-h-[180px] overflow-y-auto rounded-md border border-[#9eb8ff] bg-white/95 px-3 py-2 pr-12 text-sm text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] focus:outline-none focus:border-[#0a4bdd] focus:ring-2 focus:ring-[#c4d4ff] md:min-h-[96px]"
                             onInput={handleInput}
                             onKeyDown={handleKeyDown}
                             onPaste={handlePaste}
@@ -508,10 +511,10 @@ export function ChatBar() {
                     </div>
 
                     {/* Send & Wake Up Buttons */}
-                    <div className="flex flex-col gap-2">
+                    <div className="flex gap-2 md:flex-col md:gap-2 md:w-auto w-full">
                         <button
                             type="submit"
-                            className="px-4 py-2 bg-gradient-to-b from-[#0a4bdd] to-[#0840c7] border border-[#0036b3] rounded-md text-sm font-bold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_2px_4px_rgba(0,0,0,0.15)] transition-all hover:-translate-y-[1px] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_4px_8px_rgba(0,0,0,0.2)] flex items-center gap-1.5"
+                            className="flex w-full items-center justify-center gap-1.5 rounded-md border border-[#0036b3] bg-gradient-to-b from-[#0a4bdd] to-[#0840c7] px-4 py-2 text-sm font-bold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_2px_4px_rgba(0,0,0,0.15)] transition-all hover:-translate-y-[1px] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_4px_8px_rgba(0,0,0,0.2)] md:w-auto"
                         >
                             <Send className="w-4 h-4" strokeWidth={2} />
                             <span>Send</span>
@@ -520,7 +523,7 @@ export function ChatBar() {
                         <button
                             type="button"
                             onClick={sendWakeUp}
-                            className="px-3 py-1.5 bg-gradient-to-b from-white to-[#fff3e0] border border-[#ffb366] rounded-md text-xs text-[#ff6b00] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] flex items-center gap-1"
+                            className="flex w-full items-center justify-center gap-1 rounded-md border border-[#ffb366] bg-gradient-to-b from-white to-[#fff3e0] px-3 py-1.5 text-xs font-semibold text-[#ff6b00] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] md:w-auto"
                             title="Wecke alle auf!"
                         >
                             <Zap className="w-3 h-3" strokeWidth={2.5} />
