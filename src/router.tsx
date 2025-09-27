@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom'
+import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { LoginPage, ChatPage, ProfilePage } from './pages'
 import { RequireAuth } from './auth'
 import { useAuth } from './auth'
@@ -23,29 +23,29 @@ function RootRoute() {
     if (user) {
         return <ChatPage />
     } else {
-        return <Navigate to="/login" replace />
+        return <Navigate to="login" replace />  // OHNE führenden Slash
     }
 }
 
 export const appRouter = createBrowserRouter([
     {
         path: '/',
-        element: <RootRoute />  // Intelligente Root-Route
+        element: <RootRoute />
     },
     {
-        path: '/login',
+        path: 'login',  // OHNE führenden Slash
         element: <LoginPage />
     },
     {
-        path: '/chat',  // Explizite Chat-Route als Fallback
+        path: 'chat',   // OHNE führenden Slash
         element: <RequireAuth><ChatPage /></RequireAuth>
     },
     {
-        path: '/profile',
+        path: 'profile',  // OHNE führenden Slash
         element: <RequireAuth><ProfilePage /></RequireAuth>
     },
     {
         path: '*',
-        element: <Navigate to="/" replace />  // Alles andere -> Root
+        element: <Navigate to="/" replace />
     }
 ])

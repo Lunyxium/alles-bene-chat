@@ -3,11 +3,11 @@ import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from './authProvider'
 
 export function RequireAuth({ children }: { children: React.ReactNode }) {
-    const { user, loading } = useAuth()
+    const { user, loading, initializing } = useAuth()
     const location = useLocation()
 
     // Zeige Ladeindikator während Auth-Status geprüft wird
-    if (loading) {
+    if (loading || initializing) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#9ecdfb] via-[#c2dcff] to-[#f1f6ff]">
                 <div className="text-center">
@@ -18,7 +18,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
         )
     }
 
-    // Wenn nicht eingeloggt, zu /login mit der from-Location weiterleiten
+    // Wenn nicht eingeloggt, zu login (OHNE führenden Slash für relative Navigation)
     if (!user) {
         // Speichere die aktuelle Location, um nach Login dorthin zurückzukehren
         return <Navigate to="/login" state={{ from: location }} replace />
