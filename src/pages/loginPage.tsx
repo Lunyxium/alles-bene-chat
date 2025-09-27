@@ -1,7 +1,7 @@
 import { signInWithPopup, signInAnonymously } from 'firebase/auth'
 import { auth, googleProvider } from '@/lib/firebase'
 import { OAuthProvider } from 'firebase/auth'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/auth'
 import { useEffect } from 'react'
 
@@ -9,18 +9,23 @@ const microsoftProvider = new OAuthProvider('microsoft.com')
 
 export function LoginPage() {
     const navigate = useNavigate()
+    const location = useLocation()
     const { user } = useAuth()
+
+    // Woher kam der User? Falls von RequireAuth, dann dorthin zurück, sonst zur Hauptseite
+    const from = location.state?.from?.pathname || '/'
 
     useEffect(() => {
         if (user) {
-            navigate('/')
+            // Wenn bereits eingeloggt, zur ursprünglichen Route oder Hauptseite navigieren
+            navigate(from, { replace: true })
         }
-    }, [user, navigate])
+    }, [user, navigate, from])
 
     const handleGoogleLogin = async () => {
         try {
             await signInWithPopup(auth, googleProvider)
-            navigate('/')
+            // Navigation erfolgt automatisch über useEffect wenn user gesetzt wird
         } catch (error) {
             console.error('Google login error:', error)
             alert('Login fehlgeschlagen. Bitte versuche es erneut.')
@@ -30,7 +35,7 @@ export function LoginPage() {
     const handleMicrosoftLogin = async () => {
         try {
             await signInWithPopup(auth, microsoftProvider)
-            navigate('/')
+            // Navigation erfolgt automatisch über useEffect wenn user gesetzt wird
         } catch (error) {
             console.error('Microsoft login error:', error)
             alert('Login fehlgeschlagen. Bitte versuche es erneut.')
@@ -40,7 +45,7 @@ export function LoginPage() {
     const handleAnonymousLogin = async () => {
         try {
             await signInAnonymously(auth)
-            navigate('/')
+            // Navigation erfolgt automatisch über useEffect wenn user gesetzt wird
         } catch (error) {
             console.error('Anonymous login error:', error)
             alert('Login fehlgeschlagen. Bitte versuche es erneut.')
@@ -111,7 +116,6 @@ export function LoginPage() {
                 </div>
 
                 <div>
-
                     <div className="px-8 py-10 space-y-8">
                         <div className="space-y-2">
                             <h1 className="text-3xl text-[#2d4ea0] font-semibold tracking-tight" style={{ fontFamily: 'Trebuchet MS, Tahoma, sans-serif' }}>
@@ -186,7 +190,7 @@ export function LoginPage() {
                         </div>
 
                         <div className="rounded-lg border border-[#b9ccff] bg-gradient-to-b from-white/80 to-white/40 px-4 py-3 text-[11px] text-[#5f73b3]" style={{ fontFamily: 'Tahoma, Verdana, sans-serif' }}>
-                            Tipp: Setze deinen Status später direkt auf „Online“ oder „Beschäftigt“ – genau wie bei MSN.
+                            Tipp: Setze deinen Status später direkt auf „Online" oder „Beschäftigt" – genau wie bei MSN.
                         </div>
                     </div>
                 </div>
