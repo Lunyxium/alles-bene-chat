@@ -1,3 +1,4 @@
+// src/auth/authProvider.tsx - Clean Production Version
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { onAuthStateChanged, User } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
@@ -9,6 +10,18 @@ export const useAuth = () => useContext(Ctx)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null)
     const [loading, setLoading] = useState(true)
-    useEffect(() => onAuthStateChanged(auth, u => { setUser(u); setLoading(false) }), [])
+
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+            setUser(firebaseUser)
+            setLoading(false)
+        }, (error) => {
+            console.error('Auth error:', error)
+            setLoading(false)
+        })
+
+        return () => unsubscribe()
+    }, [])
+
     return <Ctx.Provider value={{ user, loading }}>{children}</Ctx.Provider>
 }

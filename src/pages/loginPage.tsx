@@ -1,49 +1,70 @@
 import { signInWithPopup, signInAnonymously } from 'firebase/auth'
 import { auth, googleProvider } from '@/lib/firebase'
 import { OAuthProvider } from 'firebase/auth'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/auth'
-import { useEffect } from 'react'
+import { useEffect, useState, useRef } from 'react'
 
 const microsoftProvider = new OAuthProvider('microsoft.com')
 
 export function LoginPage() {
     const navigate = useNavigate()
-    const { user } = useAuth()
+    const location = useLocation()
+    const { user, loading } = useAuth()
+    const [isLoggingIn, setIsLoggingIn] = useState(false)
+    const hasRedirectedRef = useRef(false)
 
     useEffect(() => {
-        if (user) {
-            navigate('/')
+        // Nur einmal redirecten, wenn User vorhanden ist
+        if (user && !loading && !hasRedirectedRef.current) {
+            hasRedirectedRef.current = true
+            const from = (location.state as any)?.from?.pathname || '/'
+            navigate(from, { replace: true })
         }
-    }, [user, navigate])
+    }, [user, loading, navigate, location])
+
+    // Zeige Loading nur wenn wirklich am laden
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-[#9ecdfb] via-[#c2dcff] to-[#f1f6ff] flex items-center justify-center">
+                <div className="bg-white rounded-lg p-8 shadow-lg border border-[#7fa6f7]">
+                    <div className="flex items-center gap-3">
+                        <div className="w-6 h-6 border-2 border-[#0a4bdd] border-t-transparent rounded-full animate-spin"></div>
+                        <span className="text-[#0a4bdd] font-medium">Prüfe Anmeldestatus...</span>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    // Wenn User vorhanden ist, zeige nichts (Redirect läuft)
+    if (user) {
+        return null
+    }
 
     const handleGoogleLogin = async () => {
+        if (isLoggingIn) return
+        setIsLoggingIn(true)
+
         try {
             await signInWithPopup(auth, googleProvider)
-            navigate('/')
         } catch (error) {
             console.error('Google login error:', error)
             alert('Login fehlgeschlagen. Bitte versuche es erneut.')
-        }
-    }
-
-    const handleMicrosoftLogin = async () => {
-        try {
-            await signInWithPopup(auth, microsoftProvider)
-            navigate('/')
-        } catch (error) {
-            console.error('Microsoft login error:', error)
-            alert('Login fehlgeschlagen. Bitte versuche es erneut.')
+            setIsLoggingIn(false)
         }
     }
 
     const handleAnonymousLogin = async () => {
+        if (isLoggingIn) return
+        setIsLoggingIn(true)
+
         try {
             await signInAnonymously(auth)
-            navigate('/')
         } catch (error) {
             console.error('Anonymous login error:', error)
             alert('Login fehlgeschlagen. Bitte versuche es erneut.')
+            setIsLoggingIn(false)
         }
     }
 
@@ -83,35 +104,12 @@ export function LoginPage() {
                         </div>
                     </div>
 
-                    <div className="mt-10 space-y-4 text-[#e9f1ff] text-sm" style={{ fontFamily: 'Tahoma, Verdana, sans-serif' }}>
-                        <div className="flex items-center gap-3">
-                            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-lg font-semibold">
-                                😊
-                            </span>
-                            <p>Bleibe mit deinen Benedict-Nerds verbunden – nostalgisch wie 2005.</p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-lg font-semibold">
-                                🔔
-                            </span>
-                            <p>Benachrichtigungen im klassischen Stil – inklusive imaginärem &quot;Wink&quot;.</p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-lg font-semibold">
-                                💬
-                            </span>
-                            <p>Chats in vertrauter Messenger-Optik mit einer Prise Retro-Charme.</p>
-                        </div>
-                    </div>
-
                     <p className="mt-12 text-xs text-[#d7e6ff]/80" style={{ fontFamily: 'Tahoma, Verdana, sans-serif' }}>
                         Alles Bene Chat © 2025 · Imad Chatila · Ricardo Santos Lopes · Mathias Bäumli
-                        <br />
                     </p>
                 </div>
 
                 <div>
-
                     <div className="px-8 py-10 space-y-8">
                         <div className="space-y-2">
                             <h1 className="text-3xl text-[#2d4ea0] font-semibold tracking-tight" style={{ fontFamily: 'Trebuchet MS, Tahoma, sans-serif' }}>
@@ -124,69 +122,55 @@ export function LoginPage() {
 
                         <div className="space-y-4">
                             <button
-                                onClick={handleMicrosoftLogin}
-                                className="w-full flex items-center justify-between gap-3 rounded-md border border-[#a6bfff] bg-gradient-to-b from-[#ffffff] via-[#f2f6ff] to-[#d5e2ff] px-4 py-3 text-left text-[#2d4ea0] shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_6px_12px_rgba(45,78,160,0.15)] transition-transform duration-200 hover:-translate-y-[2px] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_10px_18px_rgba(45,78,160,0.2)]"
-                                style={{ fontFamily: 'Tahoma, Verdana, sans-serif' }}
-                            >
-                                <span className="flex items-center gap-3">
-                                    <span className="inline-flex h-9 w-9 items-center justify-center rounded bg-[#f2f7ff] border border-[#a6bfff]">
-                                        <svg className="h-5 w-5 text-[#2d4ea0]" viewBox="0 0 24 24" aria-hidden>
-                                            <path fill="#f35325" d="M11.5 11.5V4H4v7.5z" />
-                                            <path fill="#81bc06" d="M20 11.5V4h-7.5v7.5z" />
-                                            <path fill="#05a6f0" d="M11.5 20v-7.5H4V20z" />
-                                            <path fill="#ffba08" d="M20 20v-7.5h-7.5V20z" />
-                                        </svg>
-                                    </span>
-                                    <span>
-                                        <span className="block text-sm font-semibold line-through">Mit Microsoft anmelden</span>
-                                        <span className="block text-xs text-[#6075b7]">Aktuell nicht verfügbar</span>
-                                    </span>
-                                </span>
-                                <span className="text-xs text-[#6075b7]">Aktuell nicht verfügbar ›</span>
-                            </button>
-
-                            <button
                                 onClick={handleGoogleLogin}
-                                className="w-full flex items-center justify-between gap-3 rounded-md border border-[#a6bfff] bg-white px-4 py-3 text-left text-[#2d4ea0] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_6px_12px_rgba(45,78,160,0.1)] transition-transform duration-200 hover:-translate-y-[2px] hover:bg-[#f6f9ff]"
+                                disabled={isLoggingIn}
+                                className="w-full flex items-center justify-between gap-3 rounded-md border border-[#a6bfff] bg-white px-4 py-3 text-left text-[#2d4ea0] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_6px_12px_rgba(45,78,160,0.1)] transition-transform duration-200 hover:-translate-y-[2px] hover:bg-[#f6f9ff] disabled:opacity-50"
                                 style={{ fontFamily: 'Tahoma, Verdana, sans-serif' }}
                             >
                                 <span className="flex items-center gap-3">
                                     <span className="inline-flex h-9 w-9 items-center justify-center rounded bg-[#f2f6ff] border border-[#a6bfff]">
-                                        <svg className="h-5 w-5" viewBox="0 0 48 48" aria-hidden>
-                                            <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12 0-6.627 5.373-12 12-12 3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24c0 11.045 8.955 20 20 20 11.045 0 20-8.955 20-20 0-1.341-.138-2.65-.389-3.917Z" />
-                                            <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691Z" />
-                                            <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44Z" />
-                                            <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917Z" />
-                                        </svg>
+                                        {isLoggingIn ? (
+                                            <div className="w-5 h-5 border-2 border-[#2d4ea0] border-t-transparent rounded-full animate-spin"></div>
+                                        ) : (
+                                            <svg className="h-5 w-5" viewBox="0 0 48 48" aria-hidden>
+                                                <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12 0-6.627 5.373-12 12-12 3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24c0 11.045 8.955 20 20 20 11.045 0 20-8.955 20-20 0-1.341-.138-2.65-.389-3.917Z" />
+                                                <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691Z" />
+                                                <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44Z" />
+                                                <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917Z" />
+                                            </svg>
+                                        )}
                                     </span>
                                     <span>
-                                        <span className="block text-sm font-semibold">Mit Google anmelden</span>
+                                        <span className="block text-sm font-semibold">
+                                            {isLoggingIn ? 'Melde an...' : 'Mit Google anmelden'}
+                                        </span>
                                         <span className="block text-xs text-[#6075b7]">Der schnelle Login mit modernem Konto</span>
                                     </span>
                                 </span>
-                                <span className="text-xs text-[#6075b7]">Weiter ›</span>
                             </button>
 
                             <button
                                 onClick={handleAnonymousLogin}
-                                className="w-full flex items-center justify-between gap-3 rounded-md border border-[#a6bfff] bg-[#f4f7ff] px-4 py-3 text-left text-[#2d4ea0] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_4px_9px_rgba(45,78,160,0.08)] transition-transform duration-200 hover:-translate-y-[2px] hover:bg-[#e9f0ff]"
+                                disabled={isLoggingIn}
+                                className="w-full flex items-center justify-between gap-3 rounded-md border border-[#a6bfff] bg-[#f4f7ff] px-4 py-3 text-left text-[#2d4ea0] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_4px_9px_rgba(45,78,160,0.08)] transition-transform duration-200 hover:-translate-y-[2px] hover:bg-[#e9f0ff] disabled:opacity-50"
                                 style={{ fontFamily: 'Tahoma, Verdana, sans-serif' }}
                             >
                                 <span className="flex items-center gap-3">
                                     <span className="inline-flex h-9 w-9 items-center justify-center rounded bg-[#edf3ff] border border-[#a6bfff] text-lg">
-                                        👤
+                                        {isLoggingIn ? (
+                                            <div className="w-4 h-4 border-2 border-[#2d4ea0] border-t-transparent rounded-full animate-spin"></div>
+                                        ) : (
+                                            '👤'
+                                        )}
                                     </span>
                                     <span>
-                                        <span className="block text-sm font-semibold">Anonym beitreten</span>
+                                        <span className="block text-sm font-semibold">
+                                            {isLoggingIn ? 'Melde an...' : 'Anonym beitreten'}
+                                        </span>
                                         <span className="block text-xs text-[#6075b7]">Ohne Konto – einfach loschatten wie damals</span>
                                     </span>
                                 </span>
-                                <span className="text-xs text-[#6075b7]">Los! ›</span>
                             </button>
-                        </div>
-
-                        <div className="rounded-lg border border-[#b9ccff] bg-gradient-to-b from-white/80 to-white/40 px-4 py-3 text-[11px] text-[#5f73b3]" style={{ fontFamily: 'Tahoma, Verdana, sans-serif' }}>
-                            Tipp: Setze deinen Status später direkt auf „Online“ oder „Beschäftigt“ – genau wie bei MSN.
                         </div>
                     </div>
                 </div>
