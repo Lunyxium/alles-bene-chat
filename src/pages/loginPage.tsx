@@ -42,6 +42,7 @@ export function LoginPage() {
         } catch (error) {
             console.error('Google login error:', error)
             alert('Login fehlgeschlagen. Bitte versuche es erneut.')
+        } finally {
             setIsLoggingIn(false)
         }
     }
@@ -54,6 +55,7 @@ export function LoginPage() {
         } catch (error) {
             console.error('Microsoft login error:', error)
             alert('Login fehlgeschlagen. Bitte versuche es erneut.')
+        } finally {
             setIsLoggingIn(false)
         }
     }
@@ -66,6 +68,7 @@ export function LoginPage() {
         } catch (error) {
             console.error('Anonymous login error:', error)
             alert('Login fehlgeschlagen. Bitte versuche es erneut.')
+        } finally {
             setIsLoggingIn(false)
         }
     }
