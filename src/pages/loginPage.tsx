@@ -3,53 +3,83 @@ import { auth, googleProvider } from '@/lib/firebase'
 import { OAuthProvider } from 'firebase/auth'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/auth'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 const microsoftProvider = new OAuthProvider('microsoft.com')
 
 export function LoginPage() {
     const navigate = useNavigate()
     const location = useLocation()
-    const { user } = useAuth()
+    const { user, loading, initializing } = useAuth()
+    const [isLoggingIn, setIsLoggingIn] = useState(false)
 
-    // Woher kam der User? Falls von RequireAuth, dann dorthin zurück, sonst zur Hauptseite
+    // Woher kam der User?
     const from = location.state?.from?.pathname || '/'
 
     useEffect(() => {
-        if (user) {
-            // Wenn bereits eingeloggt, zur ursprünglichen Route oder Hauptseite navigieren
-            navigate(from, { replace: true })
+        // Warte bis Auth vollständig initialisiert ist
+        if (initializing || loading) {
+            return  // Tue nichts während des Ladens
         }
-    }, [user, navigate, from])
+
+        // Nur navigieren wenn User vorhanden UND wir nicht gerade am einloggen sind
+        if (user && !isLoggingIn) {
+            console.log('User detected, navigating to:', from)
+            // Kleine Verzögerung um sicherzustellen dass Auth-State stabil ist
+            const timer = setTimeout(() => {
+                navigate(from, { replace: true })
+            }, 100)
+
+            return () => clearTimeout(timer)
+        }
+    }, [user, navigate, from, initializing, loading, isLoggingIn])
 
     const handleGoogleLogin = async () => {
         try {
+            setIsLoggingIn(true)
             await signInWithPopup(auth, googleProvider)
-            // Navigation erfolgt automatisch über useEffect wenn user gesetzt wird
+            // Navigation erfolgt über useEffect
         } catch (error) {
             console.error('Google login error:', error)
             alert('Login fehlgeschlagen. Bitte versuche es erneut.')
+            setIsLoggingIn(false)
         }
     }
 
     const handleMicrosoftLogin = async () => {
         try {
+            setIsLoggingIn(true)
             await signInWithPopup(auth, microsoftProvider)
-            // Navigation erfolgt automatisch über useEffect wenn user gesetzt wird
+            // Navigation erfolgt über useEffect
         } catch (error) {
             console.error('Microsoft login error:', error)
             alert('Login fehlgeschlagen. Bitte versuche es erneut.')
+            setIsLoggingIn(false)
         }
     }
 
     const handleAnonymousLogin = async () => {
         try {
+            setIsLoggingIn(true)
             await signInAnonymously(auth)
-            // Navigation erfolgt automatisch über useEffect wenn user gesetzt wird
+            // Navigation erfolgt über useEffect
         } catch (error) {
             console.error('Anonymous login error:', error)
             alert('Login fehlgeschlagen. Bitte versuche es erneut.')
+            setIsLoggingIn(false)
         }
+    }
+
+    // Zeige nichts während der initialen Auth-Prüfung
+    if (initializing || loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#9ecdfb] via-[#c2dcff] to-[#f1f6ff]">
+                <div className="text-center">
+                    <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#0054E3]"></div>
+                    <p className="mt-4 text-[#0054E3] font-semibold">Prüfe Anmeldestatus...</p>
+                </div>
+            </div>
+        )
     }
 
     return (
@@ -129,7 +159,8 @@ export function LoginPage() {
                         <div className="space-y-4">
                             <button
                                 onClick={handleMicrosoftLogin}
-                                className="w-full flex items-center justify-between gap-3 rounded-md border border-[#a6bfff] bg-gradient-to-b from-[#ffffff] via-[#f2f6ff] to-[#d5e2ff] px-4 py-3 text-left text-[#2d4ea0] shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_6px_12px_rgba(45,78,160,0.15)] transition-transform duration-200 hover:-translate-y-[2px] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_10px_18px_rgba(45,78,160,0.2)]"
+                                disabled={isLoggingIn}
+                                className="w-full flex items-center justify-between gap-3 rounded-md border border-[#a6bfff] bg-gradient-to-b from-[#ffffff] via-[#f2f6ff] to-[#d5e2ff] px-4 py-3 text-left text-[#2d4ea0] shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_6px_12px_rgba(45,78,160,0.15)] transition-transform duration-200 hover:-translate-y-[2px] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_10px_18px_rgba(45,78,160,0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
                                 style={{ fontFamily: 'Tahoma, Verdana, sans-serif' }}
                             >
                                 <span className="flex items-center gap-3">
@@ -151,7 +182,8 @@ export function LoginPage() {
 
                             <button
                                 onClick={handleGoogleLogin}
-                                className="w-full flex items-center justify-between gap-3 rounded-md border border-[#a6bfff] bg-white px-4 py-3 text-left text-[#2d4ea0] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_6px_12px_rgba(45,78,160,0.1)] transition-transform duration-200 hover:-translate-y-[2px] hover:bg-[#f6f9ff]"
+                                disabled={isLoggingIn}
+                                className="w-full flex items-center justify-between gap-3 rounded-md border border-[#a6bfff] bg-white px-4 py-3 text-left text-[#2d4ea0] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_6px_12px_rgba(45,78,160,0.1)] transition-transform duration-200 hover:-translate-y-[2px] hover:bg-[#f6f9ff] disabled:opacity-50 disabled:cursor-not-allowed"
                                 style={{ fontFamily: 'Tahoma, Verdana, sans-serif' }}
                             >
                                 <span className="flex items-center gap-3">
@@ -164,7 +196,9 @@ export function LoginPage() {
                                         </svg>
                                     </span>
                                     <span>
-                                        <span className="block text-sm font-semibold">Mit Google anmelden</span>
+                                        <span className="block text-sm font-semibold">
+                                            {isLoggingIn ? 'Anmeldung läuft...' : 'Mit Google anmelden'}
+                                        </span>
                                         <span className="block text-xs text-[#6075b7]">Der schnelle Login mit modernem Konto</span>
                                     </span>
                                 </span>
@@ -173,7 +207,8 @@ export function LoginPage() {
 
                             <button
                                 onClick={handleAnonymousLogin}
-                                className="w-full flex items-center justify-between gap-3 rounded-md border border-[#a6bfff] bg-[#f4f7ff] px-4 py-3 text-left text-[#2d4ea0] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_4px_9px_rgba(45,78,160,0.08)] transition-transform duration-200 hover:-translate-y-[2px] hover:bg-[#e9f0ff]"
+                                disabled={isLoggingIn}
+                                className="w-full flex items-center justify-between gap-3 rounded-md border border-[#a6bfff] bg-[#f4f7ff] px-4 py-3 text-left text-[#2d4ea0] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_4px_9px_rgba(45,78,160,0.08)] transition-transform duration-200 hover:-translate-y-[2px] hover:bg-[#e9f0ff] disabled:opacity-50 disabled:cursor-not-allowed"
                                 style={{ fontFamily: 'Tahoma, Verdana, sans-serif' }}
                             >
                                 <span className="flex items-center gap-3">
@@ -181,7 +216,9 @@ export function LoginPage() {
                                         👤
                                     </span>
                                     <span>
-                                        <span className="block text-sm font-semibold">Anonym beitreten</span>
+                                        <span className="block text-sm font-semibold">
+                                            {isLoggingIn ? 'Anmeldung läuft...' : 'Anonym beitreten'}
+                                        </span>
                                         <span className="block text-xs text-[#6075b7]">Ohne Konto – einfach loschatten wie damals</span>
                                     </span>
                                 </span>
