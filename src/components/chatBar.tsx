@@ -133,6 +133,18 @@ export function ChatBar() {
         updateForm()
     }, [updateForm])
 
+    const handleBlur = useCallback(() => {
+        // Save selection when editor loses focus
+        lastSelectionRef.current = saveSelection(contentEditableRef.current!)
+    }, [])
+
+    const handleFocus = useCallback(() => {
+        // When editor regains focus, restore last known selection if available
+        if (lastSelectionRef.current) {
+            restoreSelection(contentEditableRef.current!, lastSelectionRef.current)
+        }
+    }, [])
+
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
         const el = contentEditableRef.current
         if (!el) return
@@ -204,7 +216,6 @@ export function ChatBar() {
         if (!el) return
 
         el.focus()
-        lastSelectionRef.current = saveSelection(el)
 
         const sel = window.getSelection()
         if (!sel || sel.rangeCount === 0) {
@@ -212,6 +223,11 @@ export function ChatBar() {
             normalizeInputDOM(el)
             updateForm()
             return
+        }
+
+        // Use current selection or restore saved selection
+        if (lastSelectionRef.current && lastSelectionRef.current.text.length > 0) {
+            restoreSelection(el, lastSelectionRef.current)
         }
 
         const range = sel.getRangeAt(0)
@@ -231,77 +247,10 @@ export function ChatBar() {
             range.deleteContents()
             range.insertNode(document.createTextNode(replacement))
         } else {
-            // FIXED: Preserve surrounding context to avoid eating whitespace
-            // Get expanded range that includes preceding/following context
-            const expandedRange = range.cloneRange()
-
-            // Expand to include any whitespace before/after selection
-            if (range.startContainer.nodeType === Node.TEXT_NODE) {
-                const textBefore = range.startContainer.textContent || ''
-                const beforeSelection = textBefore.substring(0, range.startOffset)
-
-                // Don't expand if we're already at word boundary or start
-                if (beforeSelection.length > 0 && !/\s$/.test(beforeSelection)) {
-                    // We're in middle of text, don't expand
-                }
-            }
-
-            // Toggle wrap pairs - now preserving the original selection precisely
+            // FIXED: Simply wrap the selected text
             const replacement = toggleWrap(selected, wrap)
-
-            // Create marker elements to preserve cursor position
-            const startMarker = document.createElement('span')
-            startMarker.setAttribute('data-start-marker', 'true')
-            startMarker.style.display = 'none'
-
-            const endMarker = document.createElement('span')
-            endMarker.setAttribute('data-end-marker', 'true')
-            endMarker.style.display = 'none'
-
-            // Insert markers to preserve position
-            range.insertNode(endMarker)
+            range.deleteContents()
             range.insertNode(document.createTextNode(replacement))
-            range.insertNode(startMarker)
-
-            // Set selection to the content between markers (excluding the wrap chars)
-            const startMarkerEl = el.querySelector('[data-start-marker="true"]')
-            const endMarkerEl = el.querySelector('[data-end-marker="true"]')
-
-            if (startMarkerEl && endMarkerEl) {
-                const newRange = document.createRange()
-
-                if (replacement.startsWith(wrap[0]) && replacement.endsWith(wrap[1])) {
-                    // Text was wrapped - select content between wrap chars
-                    const contentStart = startMarkerEl.nextSibling
-                    const contentEnd = endMarkerEl.previousSibling
-
-                    if (contentStart && contentEnd) {
-                        if (contentStart.nodeType === Node.TEXT_NODE) {
-                            newRange.setStart(contentStart, wrap[0].length)
-                        } else {
-                            newRange.setStartAfter(contentStart)
-                        }
-
-                        if (contentEnd.nodeType === Node.TEXT_NODE) {
-                            const textContent = contentEnd.textContent || ''
-                            newRange.setEnd(contentEnd, Math.max(0, textContent.length - wrap[1].length))
-                        } else {
-                            newRange.setEndBefore(contentEnd)
-                        }
-                    }
-                } else {
-                    // Text was unwrapped - select all content
-                    newRange.setStartAfter(startMarkerEl)
-                    newRange.setEndBefore(endMarkerEl)
-                }
-
-                sel.removeAllRanges()
-                sel.addRange(newRange)
-
-                // Clean up markers
-                startMarkerEl.remove()
-                endMarkerEl.remove()
-            }
         }
 
         normalizeInputDOM(el)
@@ -491,7 +440,7 @@ export function ChatBar() {
                     }
 
                     updateForm()
-                    setShowEmojis(false)
+                    // DON'T close emoji picker - let it stay open
                 }}
             />
 
@@ -546,6 +495,8 @@ export function ChatBar() {
                             onInput={handleInput}
                             onKeyDown={handleKeyDown}
                             onPaste={handlePaste}
+                            onBlur={handleBlur}
+                            onFocus={handleFocus}
                             data-placeholder="Type a message...  **bold**  _italic_  ~~strike~~  `code`"
                             style={{ lineHeight: '1.5', fontFamily: '"Tahoma", "Verdana", system-ui, sans-serif' }}
                         />

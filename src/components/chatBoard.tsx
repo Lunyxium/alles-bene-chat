@@ -1,4 +1,4 @@
-import { collection, limit, orderBy, query, onSnapshot, Timestamp } from 'firebase/firestore'
+import { collection, orderBy, query, onSnapshot, Timestamp, where } from 'firebase/firestore'
 import { useEffect, useState, useRef } from 'react'
 import { db, auth } from '@/lib/firebase'
 import { ChatBubble } from './chatBubble'
@@ -28,10 +28,16 @@ export function ChatBoard() {
     }
 
     useEffect(() => {
+        // Calculate 72 hours ago
+        const now = new Date()
+        const seventyTwoHoursAgo = new Date(now.getTime() - (72 * 60 * 60 * 1000))
+        const cutoffTimestamp = Timestamp.fromDate(seventyTwoHoursAgo)
+
+        // Query for messages from the last 72 hours
         const q = query(
             collection(db, 'rooms', 'global', 'messages'),
-            orderBy('createdAt', 'desc'),
-            limit(100)
+            where('createdAt', '>=', cutoffTimestamp),
+            orderBy('createdAt', 'desc')
         )
 
         const unsubscribe = onSnapshot(q, (snap) => {
@@ -40,7 +46,7 @@ export function ChatBoard() {
                     id: d.id,
                     ...d.data()
                 } as Message))
-                .reverse()
+                .reverse() // Reverse to show oldest first
 
             setMessages(newMessages)
 
@@ -50,13 +56,12 @@ export function ChatBoard() {
             }, 100)
         })
 
-        // Welcome message
+        // Welcome message (only visual, not stored in DB)
         if (auth.currentUser) {
             const userName = auth.currentUser.displayName ||
                 auth.currentUser.email?.split('@')[0] ||
                 'Gast'
 
-            // System welcome message (only visual, not stored in DB)
             setMessages(prev => [...prev, {
                 id: 'welcome-' + Date.now(),
                 text: `${userName} ist dem Chat beigetreten! 🎉`,
@@ -94,7 +99,7 @@ export function ChatBoard() {
                         Live
                     </span>
                     <span className="h-4 w-px bg-[#c7d9ff]" />
-                    <span>{messages.length} Messages</span>
+                    <span>Messagecounter past 72h: {messages.filter(m => m.type !== 'system').length}</span>
                 </div>
             </div>
 
@@ -109,8 +114,8 @@ export function ChatBoard() {
             >
                 {messages.length === 0 ? (
                     <div className="text-center text-[#4b5f9b] text-sm mt-10">
-                        <div className="mb-3 text-xl">📭</div>
-                        <div className="font-semibold">Noch keine Nachrichten vorhanden.</div>
+                        <div className="mb-3 text-xl">🔭</div>
+                        <div className="font-semibold">Noch keine Nachrichten in den letzten 72 Stunden.</div>
                         <div className="text-xs mt-1 text-[#6c83ca]">Sei der Erste und sage Hallo! 👋</div>
                     </div>
                 ) : (

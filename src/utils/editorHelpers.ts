@@ -121,14 +121,16 @@ export function serializeToMarkdown(root: HTMLElement): string {
             if (el.classList.contains(GIF_BLOCK_CLASS)) {
                 const img = el.querySelector('img') as HTMLImageElement | null
                 if (img?.dataset.gif && img.src) {
-                    output += `![](${img.src})\n`
+                    // FIXED: Don't output markdown syntax, just output the plain URL
+                    output += img.src + '\n'
                 }
                 return
             }
 
             if (el.tagName === 'IMG' && (el as HTMLImageElement).dataset.gif) {
                 const src = (el as HTMLImageElement).src
-                if (src) output += `![](${src})\n`
+                // FIXED: Don't output markdown syntax, just output the plain URL
+                if (src) output += src + '\n'
                 return
             }
 
@@ -240,9 +242,10 @@ export function insertEmoji(editor: HTMLElement, emoji: string): void {
 
     let range: Range
     if (sel.rangeCount === 0) {
+        // No active selection - position at the end of content
         range = document.createRange()
         range.selectNodeContents(editor)
-        range.collapse(false)
+        range.collapse(false) // Position at end
         sel.addRange(range)
     } else {
         range = sel.getRangeAt(0)
