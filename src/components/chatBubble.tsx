@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react'
 import { Howl } from 'howler'
 import receivedSound from '@/sounds/received.mp3'
 import wakeupSound from '@/sounds/wakeup.mp3'
+import { useTheme } from '@/hooks/useTheme'
 
 // Initialize Howler sounds
 const sounds = {
@@ -80,6 +81,8 @@ function parseRichText(text: string): React.ReactNode {
 export function ChatBubble({ msg }: { msg: Message }) {
     const isOwnMessage = auth.currentUser?.uid === msg.userId
     const timestamp = msg.createdAt?.toDate?.() || new Date()
+    const { theme } = useTheme()
+    const isDark = theme === 'dark'
 
     // Format timestamp based on age
     const formatTimestamp = (date: Date) => {
@@ -144,7 +147,11 @@ export function ChatBubble({ msg }: { msg: Message }) {
     if (msg.type === 'system') {
         return (
             <div className="text-center py-2">
-                <span className="inline-block px-3 py-1 bg-[#E8F5E9] rounded-full text-xs text-[#4CAF50] font-semibold">
+                <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
+                    isDark
+                        ? 'bg-[#1f2937] text-[#34d399] border border-[#065f46]'
+                        : 'bg-[#E8F5E9] text-[#4CAF50]'
+                }`}>
                     *** {msg.text} ***
                 </span>
             </div>
@@ -155,7 +162,11 @@ export function ChatBubble({ msg }: { msg: Message }) {
     if (msg.type === 'wakeup') {
         return (
             <div ref={bubbleRef} className="text-center py-2">
-                <span className="inline-block px-3 py-1 bg-gradient-to-r from-[#fef3c7] to-[#fed7aa] border border-[#fb923c] rounded-full text-xs text-[#ea580c] font-semibold">
+                <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold border ${
+                    isDark
+                        ? 'bg-gradient-to-r from-[#312e81] to-[#1f2937] border-[#fbbf24] text-[#fde68a]'
+                        : 'bg-gradient-to-r from-[#fef3c7] to-[#fed7aa] border-[#fb923c] text-[#ea580c]'
+                }`}>
                     ⚡ {msg.nickname} ruft: Wake up! ⚡
                 </span>
             </div>
@@ -166,7 +177,9 @@ export function ChatBubble({ msg }: { msg: Message }) {
     if (msg.type === 'nudge') {
         return (
             <div className="text-center py-2 animate-pulse">
-                <span className="inline-block px-3 py-1 bg-[#FFF3E0] rounded-full text-xs text-[#FF6B00] font-bold">
+                <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
+                    isDark ? 'bg-[#402d16] text-[#f97316]' : 'bg-[#FFF3E0] text-[#FF6B00]'
+                }`}>
                     📢 {msg.nickname} {msg.text}
                 </span>
             </div>
@@ -178,19 +191,25 @@ export function ChatBubble({ msg }: { msg: Message }) {
         <div className={`my-1 flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[70%] flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'}`}>
                 <div className={`flex items-baseline gap-1 mb-0.5`}>
-                    <span className="text-[10px] text-gray-500">[{timeString}]</span>
+                    <span className={`text-[10px] ${isDark ? 'text-[#64748b]' : 'text-gray-500'}`}>[{timeString}]</span>
                     <span className={`text-xs font-bold ${
-                        isOwnMessage ? 'text-[#DC2626]' : 'text-[#0054E3]'
+                        isOwnMessage
+                            ? isDark ? 'text-[#facc15]' : 'text-[#DC2626]'
+                            : isDark ? 'text-[#60a5fa]' : 'text-[#0054E3]'
                     }`}>
                         {msg.nickname || 'Anonym'}:
                     </span>
                 </div>
-                <div className={`inline-block px-3 py-1.5 rounded-lg ${
+                <div className={`inline-block px-3 py-1.5 rounded-lg border ${
                     isOwnMessage
-                        ? 'bg-gradient-to-br from-[#E3F2FD] to-[#BBDEFB] text-black'
-                        : 'bg-white border border-[#D1D5DB] text-black'
+                        ? isDark
+                            ? 'border-[#1e3a8a] bg-gradient-to-br from-[#1e3a8a] to-[#1d4ed8] text-[#e0f2fe]'
+                            : 'border-transparent bg-gradient-to-br from-[#E3F2FD] to-[#BBDEFB] text-black'
+                        : isDark
+                            ? 'border-[#1d3a7a] bg-[#111827] text-[#e2e8f0]'
+                            : 'border border-[#D1D5DB] bg-white text-black'
                 }`}>
-                    <div className="text-sm break-words text-left" style={{ lineHeight: '1.5' }}>
+                    <div className={`text-sm break-words text-left ${isDark ? 'text-[#e2e8f0]' : ''}`} style={{ lineHeight: '1.5' }}>
                         {parseRichText(msg.text)}
                     </div>
                 </div>

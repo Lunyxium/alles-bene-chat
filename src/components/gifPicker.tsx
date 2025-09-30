@@ -1,6 +1,7 @@
 import React from 'react'
 import { X } from 'lucide-react'
-import GifPickerReact, { Theme, ContentFilter } from 'gif-picker-react'
+import GifPickerReact, { ContentFilter, Theme } from 'gif-picker-react'
+import { useTheme } from '@/hooks/useTheme'
 
 interface GifPickerProps {
     isOpen: boolean
@@ -10,6 +11,9 @@ interface GifPickerProps {
 
 export function GifPicker({ isOpen, onClose, onGifSelect }: GifPickerProps) {
     if (!isOpen) return null
+
+    const { theme } = useTheme()
+    const isDark = theme === 'dark'
 
     const handleGifClick = (gif: any) => {
         const gifUrl =
@@ -25,12 +29,20 @@ export function GifPicker({ isOpen, onClose, onGifSelect }: GifPickerProps) {
         }
     }
 
+    const wrapperClass = isDark
+        ? 'bg-[#0f172a]/95 border-2 border-[#1d3a7a] text-[#dbeafe]'
+        : 'bg-white border-2 border-[#7a96df]'
+
+    const closeButtonClass = isDark
+        ? 'absolute top-2 right-2 z-50 w-6 h-6 rounded-full bg-[#1a2544] hover:bg-[#24315b] border border-[#1d3a7a] flex items-center justify-center transition-colors text-[#bfdbfe]'
+        : 'absolute top-2 right-2 z-50 w-6 h-6 rounded-full bg-white/90 hover:bg-white border border-gray-300 flex items-center justify-center transition-colors'
+
     return (
         <div className="gif-container absolute bottom-28 left-8 z-50">
-            <div className="bg-white border-2 border-[#7a96df] rounded-xl shadow-[0_15px_35px_rgba(58,92,173,0.25)] overflow-hidden relative">
+            <div className={`${wrapperClass} rounded-xl shadow-[0_15px_35px_rgba(8,47,73,0.45)] overflow-hidden relative`}>
                 <button
                     onClick={onClose}
-                    className="absolute top-2 right-2 z-50 w-6 h-6 rounded-full bg-white/90 hover:bg-white border border-gray-300 flex items-center justify-center transition-colors"
+                    className={closeButtonClass}
                     title="Schliessen"
                 >
                     <X className="w-4 h-4" strokeWidth={2} />
@@ -42,7 +54,7 @@ export function GifPicker({ isOpen, onClose, onGifSelect }: GifPickerProps) {
                         onGifClick={handleGifClick}
                         width={450}
                         height={400}
-                        theme={Theme.LIGHT}
+                        theme={isDark ? Theme.DARK : Theme.LIGHT}
                         locale="de_DE"
                         contentFilter={ContentFilter.MEDIUM}
                     />

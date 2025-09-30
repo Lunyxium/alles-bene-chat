@@ -9,6 +9,7 @@ import { SmilePlus, Send, Zap, Type, Film } from 'lucide-react'
 import { EmojiPicker } from './emojiPicker'
 import { FormatHelper } from './formatHelper'
 import { GifPicker } from './gifPicker'
+import { useTheme } from '@/hooks/useTheme'
 import {
     EMOJI_INPUT_STYLES,
     MAX_GIF_PER_MESSAGE,
@@ -59,6 +60,8 @@ export function ChatBar() {
     const [showGifs, setShowGifs] = useState(false)
     const [showFormatting, setShowFormatting] = useState(false)
     const [gifLimitHit, setGifLimitHit] = useState(false)
+    const { theme } = useTheme()
+    const isDark = theme === 'dark'
 
     // Refs
     const contentEditableRef = useRef<HTMLDivElement>(null)
@@ -386,6 +389,44 @@ export function ChatBar() {
     }, [])
 
     // ==================== RENDER ====================
+    const shellBorderClass = gifLimitHit
+        ? isDark ? 'gif-limit-hit border-[#fb923c]' : 'gif-limit-hit border-red-300'
+        : isDark ? 'border-[#1d3a7a]' : 'border-[#7a96df]'
+
+    const shellClass = `overflow-hidden rounded-[14px] border ${shellBorderClass} ${isDark ? 'bg-[#0f172a]/95 shadow-[0_12px_24px_rgba(8,47,73,0.4)]' : 'bg-white/95 shadow-[0_6px_18px_rgba(58,92,173,0.12)]'}`
+
+    const formClass = isDark
+        ? 'flex flex-col gap-3 p-3 sm:p-4 md:flex-row md:items-start md:gap-3 bg-gradient-to-r from-[#111c3a] via-[#0f172a] to-[#111c3a]'
+        : 'flex flex-col gap-3 p-3 sm:p-4 md:flex-row md:items-start md:gap-3 bg-gradient-to-r from-[#eef3ff] via-[#e6eeff] to-[#eef3ff]'
+
+    const formatBtnClass = isDark
+        ? 'px-2.5 py-1.5 bg-gradient-to-b from-[#241f4f] to-[#1c163f] border border-[#4c3ab8] rounded-md text-sm text-[#c4b5fd] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] transition-transform hover:-translate-y-[1px]'
+        : 'px-2.5 py-1.5 bg-gradient-to-b from-[#f3e6ff] to-[#e6d4ff] border border-[#c09eff] rounded-md text-sm text-[#7c3aed] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-transform hover:-translate-y-[1px]'
+
+    const emojiBtnClass = isDark
+        ? 'px-2.5 py-1.5 bg-gradient-to-b from-[#1a2a50] to-[#14203d] border border-[#1d4ed8] rounded-md text-sm text-[#bfdbfe] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-transform hover:-translate-y-[1px]'
+        : 'px-2.5 py-1.5 bg-gradient-to-b from-[#e6f3ff] to-[#d4e9ff] border border-[#9eb8ff] rounded-md text-sm text-[#0a4bdd] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-transform hover:-translate-y-[1px]'
+
+    const gifBtnClass = isDark
+        ? 'px-2.5 py-1.5 bg-gradient-to-b from-[#1c3524] to-[#142418] border border-[#2dd4bf] rounded-md text-sm text-[#5eead4] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-transform hover:-translate-y-[1px]'
+        : 'px-2.5 py-1.5 bg-gradient-to-b from-[#e6ffe6] to-[#d4ffd4] border border-[#9eff9e] rounded-md text-sm text-[#0a9e0a] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-transform hover:-translate-y-[1px]'
+
+    const inputClass = isDark
+        ? 'w-full min-h-[64px] max-h-[180px] overflow-y-auto rounded-md border border-[#1d3a7a] bg-[#0b1225] px-3 py-2 pr-12 text-sm text-[#bfdbfe] shadow-[inset_0_1px_0_rgba(148,163,184,0.15)] focus:outline-none focus:border-[#60a5fa] focus:ring-2 focus:ring-[#1d4ed8] md:min-h-[96px]'
+        : 'w-full min-h-[64px] max-h-[180px] overflow-y-auto rounded-md border border-[#9eb8ff] bg-white/95 px-3 py-2 pr-12 text-sm text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] focus:outline-none focus:border-[#0a4bdd] focus:ring-2 focus:ring-[#c4d4ff] md:min-h-[96px]'
+
+    const counterClass = isDark ? 'absolute bottom-2 right-2 text-[10px] text-[#647bb0] pointer-events-none select-none' : 'absolute bottom-2 right-2 text-[10px] text-[#a0b1d9] pointer-events-none select-none'
+
+    const sendButtonClass = isDark
+        ? 'flex w-full items-center justify-center gap-1.5 rounded-md border border-[#1e3a8a] bg-gradient-to-b from-[#1d4ed8] to-[#1e3a8a] px-4 py-2 text-sm font-bold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_2px_4px_rgba(2,6,23,0.4)] transition-all hover:-translate-y-[1px] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_4px_10px_rgba(2,6,23,0.45)] md:w-auto'
+        : 'flex w-full items-center justify-center gap-1.5 rounded-md border border-[#0036b3] bg-gradient-to-b from-[#0a4bdd] to-[#0840c7] px-4 py-2 text-sm font-bold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_2px_4px_rgba(0,0,0,0.15)] transition-all hover:-translate-y-[1px] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_4px_8px_rgba(0,0,0,0.2)] md:w-auto'
+
+    const wakeButtonClass = isDark
+        ? 'flex w-full items-center justify-center gap-1 rounded-md border border-[#f97316] bg-gradient-to-b from-[#1f2937] to-[#111827] px-3 py-1.5 text-xs font-semibold text-[#fbbf24] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-transform hover:-translate-y-[1px] md:w-auto'
+        : 'flex w-full items-center justify-center gap-1 rounded-md border border-[#ffb366] bg-gradient-to-b from-white to-[#fff3e0] px-3 py-1.5 text-xs font-semibold text-[#ff6b00] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] md:w-auto'
+
+    const toolbarContainerClass = 'flex flex-wrap gap-2 md:flex-col md:gap-2'
+
     return (
         <div className="relative z-10" data-chat-bar>
             <style>{EMOJI_INPUT_STYLES}</style>
@@ -445,22 +486,20 @@ export function ChatBar() {
             />
 
             {/* Main Input Bar */}
-            <div className={`overflow-hidden rounded-[14px] border ${
-                gifLimitHit ? 'gif-limit-hit border-red-300' : 'border-[#7a96df]'
-            } bg-white/95 shadow-[0_6px_18px_rgba(58,92,173,0.12)]`}>
+            <div className={shellClass}>
                 <form
                     onSubmit={form.handleSubmit(onSend)}
-                    className="flex flex-col gap-3 p-3 sm:p-4 md:flex-row md:items-start md:gap-3 bg-gradient-to-r from-[#eef3ff] via-[#e6eeff] to-[#eef3ff]"
+                    className={formClass}
                 >
 
                     {/* Format/Emoji/GIF Buttons */}
-                    <div className="flex flex-wrap gap-2 md:flex-col md:gap-2">
+                    <div className={toolbarContainerClass}>
                         <button
                             type="button"
                             data-popup-trigger
                             onClick={() => handlePopupToggle('format')}
                             onMouseDown={(e) => e.preventDefault()}
-                            className="px-2.5 py-1.5 bg-gradient-to-b from-[#f3e6ff] to-[#e6d4ff] border border-[#c09eff] rounded-md text-sm text-[#7c3aed] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-transform hover:-translate-y-[1px]"
+                            className={formatBtnClass}
                             title="Formatierung"
                         >
                             <Type className="w-4 h-4" strokeWidth={2} />
@@ -471,7 +510,7 @@ export function ChatBar() {
                             data-popup-trigger
                             onClick={() => handlePopupToggle('emoji')}
                             onMouseDown={(e) => e.preventDefault()}
-                            className="px-2.5 py-1.5 bg-gradient-to-b from-[#e6f3ff] to-[#d4e9ff] border border-[#9eb8ff] rounded-md text-sm text-[#0a4bdd] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-transform hover:-translate-y-[1px]"
+                            className={emojiBtnClass}
                             title="Emojis"
                         >
                             <SmilePlus className="w-4 h-4" strokeWidth={2} />
@@ -482,7 +521,7 @@ export function ChatBar() {
                             data-popup-trigger
                             onClick={() => handlePopupToggle('gif')}
                             onMouseDown={(e) => e.preventDefault()}
-                            className="px-2.5 py-1.5 bg-gradient-to-b from-[#e6ffe6] to-[#d4ffd4] border border-[#9eff9e] rounded-md text-sm text-[#0a9e0a] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-transform hover:-translate-y-[1px]"
+                            className={gifBtnClass}
                             title="GIFs"
                         >
                             <Film className="w-4 h-4" strokeWidth={2} />
@@ -494,7 +533,7 @@ export function ChatBar() {
                         <div
                             ref={contentEditableRef}
                             contentEditable
-                            className="w-full min-h-[64px] max-h-[180px] overflow-y-auto rounded-md border border-[#9eb8ff] bg-white/95 px-3 py-2 pr-12 text-sm text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] focus:outline-none focus:border-[#0a4bdd] focus:ring-2 focus:ring-[#c4d4ff] md:min-h-[96px]"
+                            className={inputClass}
                             onInput={handleInput}
                             onKeyDown={handleKeyDown}
                             onPaste={handlePaste}
@@ -505,7 +544,7 @@ export function ChatBar() {
                         />
 
                         {/* Character Counter */}
-                        <div className="absolute bottom-2 right-2 text-[10px] text-[#a0b1d9] pointer-events-none select-none">
+                        <div className={counterClass}>
                             {form.watch('text').length}/{MAX_MESSAGE_LENGTH}
                         </div>
                     </div>
@@ -514,7 +553,7 @@ export function ChatBar() {
                     <div className="flex gap-2 md:flex-col md:gap-2 md:w-auto w-full">
                         <button
                             type="submit"
-                            className="flex w-full items-center justify-center gap-1.5 rounded-md border border-[#0036b3] bg-gradient-to-b from-[#0a4bdd] to-[#0840c7] px-4 py-2 text-sm font-bold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_2px_4px_rgba(0,0,0,0.15)] transition-all hover:-translate-y-[1px] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_4px_8px_rgba(0,0,0,0.2)] md:w-auto"
+                            className={sendButtonClass}
                         >
                             <Send className="w-4 h-4" strokeWidth={2} />
                             <span>Send</span>
@@ -523,7 +562,7 @@ export function ChatBar() {
                         <button
                             type="button"
                             onClick={sendWakeUp}
-                            className="flex w-full items-center justify-center gap-1 rounded-md border border-[#ffb366] bg-gradient-to-b from-white to-[#fff3e0] px-3 py-1.5 text-xs font-semibold text-[#ff6b00] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[1px] md:w-auto"
+                            className={wakeButtonClass}
                             title="Wecke alle auf!"
                         >
                             <Zap className="w-3 h-3" strokeWidth={2.5} />

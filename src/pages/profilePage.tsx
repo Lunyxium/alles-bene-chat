@@ -11,12 +11,49 @@ export function ProfilePage() {
     const [bio, setBio] = useState('')
     const [saving, setSaving] = useState(false)
 
+    const resolveUserDocId = () => {
+        if (!user) {
+            return null
+        }
+
+        if (typeof window !== 'undefined') {
+            const browserWindow = window as typeof window & { __userDocId?: string }
+            const storedId = browserWindow.__userDocId || localStorage.getItem('userDocId')
+
+            if (storedId) {
+                browserWindow.__userDocId = storedId
+                return storedId
+            }
+        }
+
+        const initialName = user.displayName || user.email?.split('@')[0] || 'user'
+        const cleanInitialName = initialName.toLowerCase()
+            .replace(/[^a-z0-9]/g, '_')
+            .replace(/_+/g, '_')
+            .substring(0, 20)
+        const shortId = user.uid.slice(0, 8)
+        const fixedDocId = `${cleanInitialName}_${shortId}`
+
+        if (typeof window !== 'undefined') {
+            const browserWindow = window as typeof window & { __userDocId?: string }
+            browserWindow.__userDocId = fixedDocId
+            localStorage.setItem('userDocId', fixedDocId)
+        }
+
+        return fixedDocId
+    }
+
     useEffect(() => {
         if (!user) return
 
         // Load user profile
         const loadProfile = async () => {
-            const userDoc = await getDoc(doc(db, 'users', user.uid))
+            const userDocId = resolveUserDocId()
+            if (!userDocId) {
+                return
+            }
+
+            const userDoc = await getDoc(doc(db, 'users', userDocId))
             if (userDoc.exists()) {
                 const data = userDoc.data()
                 setDisplayName(data.displayName || '')
@@ -34,7 +71,12 @@ export function ProfilePage() {
 
         setSaving(true)
         try {
-            await setDoc(doc(db, 'users', user.uid), {
+            const userDocId = resolveUserDocId()
+            if (!userDocId) {
+                throw new Error('Benutzer-Dokument konnte nicht bestimmt werden')
+            }
+
+            await setDoc(doc(db, 'users', userDocId), {
                 displayName,
                 bio,
                 email: user.email,

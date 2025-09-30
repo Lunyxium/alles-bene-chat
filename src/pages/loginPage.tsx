@@ -1,17 +1,18 @@
 import { signInWithPopup, signInAnonymously } from 'firebase/auth'
-import { auth, googleProvider } from '@/lib/firebase'
-import { OAuthProvider } from 'firebase/auth'
+import { auth, googleProvider, githubProvider } from '@/lib/firebase'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/auth'
 import { useEffect, useState } from 'react'
-
-const microsoftProvider = new OAuthProvider('microsoft.com')
+import { ThemeSwitcher } from '@/components/themeSwitcher'
+import { useTheme } from '@/hooks/useTheme'
 
 export function LoginPage() {
     const navigate = useNavigate()
     const location = useLocation()
     const { user, loading, initializing } = useAuth()
     const [isLoggingIn, setIsLoggingIn] = useState(false)
+    const { theme } = useTheme()
+    const isDark = theme === 'dark'
 
     // Woher kam der User?
     const from = location.state?.from?.pathname || '/'
@@ -47,13 +48,13 @@ export function LoginPage() {
         }
     }
 
-    const handleMicrosoftLogin = async () => {
+    const handleGithubLogin = async () => {
         try {
             setIsLoggingIn(true)
-            await signInWithPopup(auth, microsoftProvider)
+            await signInWithPopup(auth, githubProvider)
             // Navigation erfolgt über useEffect
         } catch (error) {
-            console.error('Microsoft login error:', error)
+            console.error('GitHub login error:', error)
             alert('Login fehlgeschlagen. Bitte versuche es erneut.')
         } finally {
             setIsLoggingIn(false)
@@ -73,28 +74,74 @@ export function LoginPage() {
         }
     }
 
+    const backgroundGradient = isDark
+        ? 'bg-gradient-to-br from-[#0b1120] via-[#10172a] to-[#0f172a]'
+        : 'bg-gradient-to-br from-[#9ecdfb] via-[#c2dcff] to-[#f1f6ff]'
+
+    const accentGlowPrimary = isDark
+        ? 'bg-[radial-gradient(circle,#1d4ed824,transparent_70%)]'
+        : 'bg-[radial-gradient(circle,#fff8,transparent_70%)]'
+
+    const accentGlowSecondary = isDark
+        ? 'bg-[radial-gradient(circle,#312e8130,transparent_70%)]'
+        : 'bg-[radial-gradient(circle,#7fb3ff33,transparent_70%)]'
+
+    const cardWrapperClass = isDark
+        ? 'border border-[#1d3a7a] bg-[#0f172a]/90 text-[#dbeafe] shadow-[0_18px_40px_rgba(10,31,68,0.45)]'
+        : 'border border-[#7fa6f7] bg-white/90 text-[#2d4ea0] shadow-[0_18px_40px_rgba(40,94,173,0.25)]'
+
+    const heroPanelClass = isDark
+        ? 'bg-gradient-to-b from-[#1d4ed8] via-[#1e3a8a] to-[#0b1a3b] text-[#e2e8f0]'
+        : 'bg-gradient-to-b from-[#4f82ff] via-[#356ef0] to-[#1f4ebf] text-white'
+
+    const heroLeadClass = isDark ? 'text-[#bfdbfe]' : 'text-[#d7e6ff]'
+    const heroSubTextClass = isDark ? 'text-[#93c5fd]' : 'text-[#d9e7ff]'
+    const rightPanelTitleClass = isDark ? 'text-[#dbeafe]' : 'text-[#2d4ea0]'
+    const rightPanelTextClass = isDark ? 'text-[#9fb7dd]' : 'text-[#4f63a7]'
+
+    const buttonBaseClass = 'w-full flex items-center justify-between gap-3 rounded-md px-4 py-3 text-left transition-transform duration-200 hover:-translate-y-[2px] disabled:opacity-50 disabled:cursor-not-allowed'
+
+    const githubButtonClass = isDark
+        ? `${buttonBaseClass} border border-[#1d3a7a] bg-[#14203d] text-[#93c5fd] shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_6px_12px_rgba(15,23,42,0.45)] hover:bg-[#1a2a4f]`
+        : `${buttonBaseClass} border border-[#a6bfff] bg-gradient-to-b from-[#ffffff] via-[#f2f6ff] to-[#d5e2ff] text-[#2d4ea0] shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_6px_12px_rgba(45,78,160,0.15)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_10px_18px_rgba(45,78,160,0.2)]`
+
+    const secondaryTextClass = isDark ? 'text-[#647bb0]' : 'text-[#6075b7]'
+
+    const googleButtonClass = isDark
+        ? `${buttonBaseClass} border border-[#1d3a7a] bg-[#0f172a] text-[#dbeafe] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_6px_12px_rgba(15,23,42,0.45)] hover:bg-[#17203b]`
+        : `${buttonBaseClass} border border-[#a6bfff] bg-white text-[#2d4ea0] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_6px_12px_rgba(45,78,160,0.1)] hover:bg-[#f6f9ff]`
+
+    const anonymousButtonClass = isDark
+        ? `${buttonBaseClass} border border-[#1d3a7a] bg-[#14203d] text-[#cbd5f5] shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_6px_12px_rgba(15,23,42,0.45)] hover:bg-[#1a2a4f]`
+        : `${buttonBaseClass} border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] text-[#2d4ea0] shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_6px_12px_rgba(45,78,160,0.12)]`
+
     // Zeige nichts während der initialen Auth-Prüfung
     if (initializing || loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#9ecdfb] via-[#c2dcff] to-[#f1f6ff]">
+            <div className={`relative min-h-screen flex items-center justify-center overflow-hidden px-4 py-10 ${backgroundGradient}`}>
+                <div className="absolute right-5 top-5">
+                    <ThemeSwitcher size="sm" />
+                </div>
                 <div className="text-center">
-                    <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#0054E3]"></div>
-                    <p className="mt-4 text-[#0054E3] font-semibold">Prüfe Anmeldestatus...</p>
+                    <div className={`inline-block h-12 w-12 animate-spin rounded-full border-b-2 ${isDark ? 'border-[#60a5fa]' : 'border-[#0054E3]'}`}></div>
+                    <p className={`mt-4 font-semibold ${isDark ? 'text-[#bfdbfe]' : 'text-[#0054E3]'}`}>
+                        Prüfe Anmeldestatus...
+                    </p>
                 </div>
             </div>
         )
     }
 
     return (
-        <section className="relative min-h-screen bg-gradient-to-br from-[#9ecdfb] via-[#c2dcff] to-[#f1f6ff] flex items-center justify-center overflow-hidden px-4 py-10">
-            <div className="absolute -top-16 -left-20 w-64 h-64 bg-[radial-gradient(circle,#fff8,transparent_70%)] blur-2xl" />
-            <div className="absolute bottom-10 right-10 w-72 h-72 bg-[radial-gradient(circle,#7fb3ff33,transparent_70%)] blur-3xl" />
+        <section className={`relative min-h-screen flex items-center justify-center overflow-hidden px-4 py-10 ${backgroundGradient}`}>
+            <div className={`absolute -top-16 -left-20 h-64 w-64 blur-2xl ${accentGlowPrimary}`} />
+            <div className={`absolute bottom-10 right-10 h-72 w-72 blur-3xl ${accentGlowSecondary}`} />
 
-            <div className="relative w-full max-w-4xl rounded-[18px] border border-[#7fa6f7] bg-white/90 backdrop-blur-sm shadow-[0_18px_40px_rgba(40,94,173,0.25)] overflow-hidden md:grid md:grid-cols-[1fr,1.1fr]">
-                <div className="bg-gradient-to-b from-[#4f82ff] via-[#356ef0] to-[#1f4ebf] text-white px-8 py-10 flex flex-col justify-between">
+            <div className={`relative w-full max-w-4xl rounded-[18px] backdrop-blur-sm overflow-hidden md:grid md:grid-cols-[1fr,1.1fr] ${cardWrapperClass}`}>
+                <div className={`${heroPanelClass} px-8 py-10 flex flex-col justify-between`}>
                     <div className="flex items-center gap-4">
                         <div className="relative w-16 h-16">
-                            <span className="absolute inset-0 rounded-full bg-white/35 backdrop-blur-sm" />
+                            <span className={`absolute inset-0 rounded-full backdrop-blur-sm ${isDark ? 'bg-white/25' : 'bg-white/35'}`} />
                             <svg
                                 className="absolute inset-[18%] text-white"
                                 viewBox="0 0 80 80"
@@ -112,7 +159,7 @@ export function LoginPage() {
                             </svg>
                         </div>
                         <div>
-                            <p className="text-sm uppercase tracking-[0.2em] text-[#d7e6ff]">
+                            <p className={`text-sm uppercase tracking-[0.2em] ${heroLeadClass}`}>
                                 Willkommen zurück
                             </p>
                             <h2 className="text-2xl font-semibold leading-snug" style={{ fontFamily: 'Trebuchet MS, Tahoma, sans-serif' }}>
@@ -148,45 +195,52 @@ export function LoginPage() {
                     </p>
                 </div>
 
-                <div>
+                <div className={isDark ? 'bg-[#101a32]/85' : 'bg-white/80'}>
                     <div className="px-8 py-10 space-y-8">
                         <div className="space-y-2">
-                            <h1 className="text-3xl text-[#2d4ea0] font-semibold tracking-tight" style={{ fontFamily: 'Trebuchet MS, Tahoma, sans-serif' }}>
-                                Alles Bene Chat
-                            </h1>
-                            <p className="text-sm text-[#4f63a7]" style={{ fontFamily: 'Tahoma, Verdana, sans-serif' }}>
+                            <div className="flex items-center justify-between gap-4">
+                                <h1 className={`text-3xl font-semibold tracking-tight ${rightPanelTitleClass}`} style={{ fontFamily: 'Trebuchet MS, Tahoma, sans-serif' }}>
+                                    Alles Bene Chat
+                                </h1>
+                                <ThemeSwitcher size="sm" />
+                            </div>
+                            <p className={`text-sm ${rightPanelTextClass}`} style={{ fontFamily: 'Tahoma, Verdana, sans-serif' }}>
                                 Melde dich mit deinem Lieblingskonto an oder springe direkt anonym in den Chat.
                             </p>
                         </div>
 
                         <div className="space-y-4">
                             <button
-                                onClick={handleMicrosoftLogin}
+                                onClick={handleGithubLogin}
                                 disabled={isLoggingIn}
-                                className="w-full flex items-center justify-between gap-3 rounded-md border border-[#a6bfff] bg-gradient-to-b from-[#ffffff] via-[#f2f6ff] to-[#d5e2ff] px-4 py-3 text-left text-[#2d4ea0] shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_6px_12px_rgba(45,78,160,0.15)] transition-transform duration-200 hover:-translate-y-[2px] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_10px_18px_rgba(45,78,160,0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
+                                className={githubButtonClass}
                                 style={{ fontFamily: 'Tahoma, Verdana, sans-serif' }}
                             >
                                 <span className="flex items-center gap-3">
                                     <span className="inline-flex h-9 w-9 items-center justify-center rounded bg-[#f2f7ff] border border-[#a6bfff]">
                                         <svg className="h-5 w-5 text-[#2d4ea0]" viewBox="0 0 24 24" aria-hidden>
-                                            <path fill="#f35325" d="M11.5 11.5V4H4v7.5z" />
-                                            <path fill="#81bc06" d="M20 11.5V4h-7.5v7.5z" />
-                                            <path fill="#05a6f0" d="M11.5 20v-7.5H4V20z" />
-                                            <path fill="#ffba08" d="M20 20v-7.5h-7.5V20z" />
+                                            <path
+                                                fill="currentColor"
+                                                d="M12 .5a12 12 0 0 0-3.793 23.4c.6.112.82-.26.82-.577 0-.285-.01-1.04-.016-2.04-3.338.726-4.042-1.61-4.042-1.61-.546-1.388-1.333-1.758-1.333-1.758-1.09-.744.083-.729.083-.729 1.205.085 1.84 1.237 1.84 1.237 1.07 1.834 2.809 1.304 3.492.997.108-.776.418-1.305.76-1.605-2.665-.303-5.466-1.332-5.466-5.931 0-1.31.469-2.381 1.236-3.221-.124-.303-.536-1.524.117-3.176 0 0 1.009-.323 3.305 1.23a11.52 11.52 0 0 1 6.018 0c2.296-1.553 3.303-1.23 3.303-1.23.655 1.652.243 2.873.12 3.176.77.84 1.235 1.911 1.235 3.221 0 4.61-2.805 5.625-5.477 5.922.43.37.814 1.102.814 2.222 0 1.607-.015 2.902-.015 3.296 0 .32.216.694.825.576A12.004 12.004 0 0 0 12 .5Z"
+                                            />
                                         </svg>
                                     </span>
                                     <span>
-                                        <span className="block text-sm font-semibold line-through">Mit Microsoft anmelden</span>
-                                        <span className="block text-xs text-[#6075b7]">Aktuell nicht verfügbar</span>
+                                        <span className="block text-sm font-semibold">
+                                            {isLoggingIn ? 'Anmeldung läuft...' : 'Mit GitHub anmelden'}
+                                        </span>
+                                        <span className={`block text-xs ${secondaryTextClass}`}>
+                                            Verbinde dich mit deinem Dev-Konto
+                                        </span>
                                     </span>
                                 </span>
-                                <span className="text-xs text-[#6075b7]">Aktuell nicht verfügbar ›</span>
+                                <span className={`text-xs ${secondaryTextClass}`}>Weiter ›</span>
                             </button>
 
                             <button
                                 onClick={handleGoogleLogin}
                                 disabled={isLoggingIn}
-                                className="w-full flex items-center justify-between gap-3 rounded-md border border-[#a6bfff] bg-white px-4 py-3 text-left text-[#2d4ea0] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_6px_12px_rgba(45,78,160,0.1)] transition-transform duration-200 hover:-translate-y-[2px] hover:bg-[#f6f9ff] disabled:opacity-50 disabled:cursor-not-allowed"
+                                className={googleButtonClass}
                                 style={{ fontFamily: 'Tahoma, Verdana, sans-serif' }}
                             >
                                 <span className="flex items-center gap-3">
@@ -202,16 +256,18 @@ export function LoginPage() {
                                         <span className="block text-sm font-semibold">
                                             {isLoggingIn ? 'Anmeldung läuft...' : 'Mit Google anmelden'}
                                         </span>
-                                        <span className="block text-xs text-[#6075b7]">Der schnelle Login mit modernem Konto</span>
+                                        <span className={`block text-xs ${secondaryTextClass}`}>
+                                            Der schnelle Login mit modernem Konto
+                                        </span>
                                     </span>
                                 </span>
-                                <span className="text-xs text-[#6075b7]">Weiter ›</span>
+                                <span className={`text-xs ${secondaryTextClass}`}>Weiter ›</span>
                             </button>
 
                             <button
                                 onClick={handleAnonymousLogin}
                                 disabled={isLoggingIn}
-                                className="w-full flex items-center justify-between gap-3 rounded-md border border-[#a6bfff] bg-[#f4f7ff] px-4 py-3 text-left text-[#2d4ea0] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_4px_9px_rgba(45,78,160,0.08)] transition-transform duration-200 hover:-translate-y-[2px] hover:bg-[#e9f0ff] disabled:opacity-50 disabled:cursor-not-allowed"
+                                className={anonymousButtonClass}
                                 style={{ fontFamily: 'Tahoma, Verdana, sans-serif' }}
                             >
                                 <span className="flex items-center gap-3">
@@ -222,15 +278,11 @@ export function LoginPage() {
                                         <span className="block text-sm font-semibold">
                                             {isLoggingIn ? 'Anmeldung läuft...' : 'Anonym beitreten'}
                                         </span>
-                                        <span className="block text-xs text-[#6075b7]">Ohne Konto – einfach loschatten wie damals</span>
+                                        <span className={`block text-xs ${secondaryTextClass}`}>Ohne Konto – einfach loschatten wie damals</span>
                                     </span>
                                 </span>
-                                <span className="text-xs text-[#6075b7]">Los! ›</span>
+                                <span className={`text-xs ${secondaryTextClass}`}>Los! ›</span>
                             </button>
-                        </div>
-
-                        <div className="rounded-lg border border-[#b9ccff] bg-gradient-to-b from-white/80 to-white/40 px-4 py-3 text-[11px] text-[#5f73b3]" style={{ fontFamily: 'Tahoma, Verdana, sans-serif' }}>
-                            Tipp: Setze deinen Status später direkt auf „Online" oder „Beschäftigt" – genau wie bei MSN.
                         </div>
                     </div>
                 </div>

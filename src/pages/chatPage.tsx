@@ -1,10 +1,21 @@
 import { ChatBoard, ChatBar } from '@/components'
 import { SettingsPanel } from '@/components/settingsPanel'
-import { useState, useEffect, useRef } from 'react'
+import { ThemeSwitcher } from '@/components/themeSwitcher'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { auth, db } from '@/lib/firebase'
 import { collection, onSnapshot, query, doc, setDoc, updateDoc, serverTimestamp, getDoc, getDocs, deleteDoc } from 'firebase/firestore'
 import { useNavigate } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
+import { useTheme } from '@/hooks/useTheme'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { cn } from '@/lib/utils'
 // Lucide Icons Import
 import {
     Users,
@@ -42,6 +53,67 @@ interface OnlineUser {
     provider?: string
 }
 
+type ChatLayoutMode = 'classic' | 'modern'
+
+interface LayoutClassTokens {
+    pageBackgroundClass: string
+    cardShellClass: string
+    innerPanelBackground: string
+    headerGradientClass: string
+    headerMutedTextClass: string
+    chatBoardContainerClass: string
+    chatBarContainerClass: string
+    mobileListContainerClass: string
+    sidebarContainerClass: string
+    sidebarHeaderClass: string
+    sidebarFooterClass: string
+    debugPanelClass: string
+    debugLabelClass: string
+    debugValueClass: string
+    debugValueAccentClass: string
+    mobileToggleButtonClass: string
+    backgroundGlowTopLeft: string
+    backgroundGlowTopRight: string
+    backgroundGlowBottom: string
+    actionButtonClassMobile: string
+    actionButtonClassDesktop: string
+    modalOverlayClass: string
+    shareCardClass: string
+    shareGlowClass: string
+    shareHeadingClass: string
+    shareTextClass: string
+    shareInputClass: string
+    shareButtonClass: string
+    logoutCardClass: string
+    logoutGlowClass: string
+    logoutIconWrapClass: string
+    logoutTitleClass: string
+    logoutSubtitleClass: string
+    logoutInfoBoxClass: string
+    logoutInfoTextClass: string
+    logoutInfoSubTextClass: string
+    logoutCancelButtonClass: string
+    logoutConfirmButtonClass: string
+}
+
+interface StatusCardVariant {
+    self: string
+    other: string
+    hover: string
+    text: string
+    subText: string
+}
+
+type StatusAppearance = Record<'dark' | 'light', StatusCardVariant>
+
+interface StatusStyleTokens {
+    awake: StatusAppearance
+    idle: StatusAppearance
+    gone: StatusAppearance
+}
+
+const CHAT_LAYOUT_STORAGE_KEY = 'chat-layout-theme'
+
 export function ChatPage() {
     const [awakeUsers, setAwakeUsers] = useState<OnlineUser[]>([])
     const [idleUsers, setIdleUsers] = useState<OnlineUser[]>([])
@@ -52,6 +124,14 @@ export function ChatPage() {
     const [isLoggingOut, setIsLoggingOut] = useState(false)
     const [currentDisplayName, setCurrentDisplayName] = useState('')
     const [showMobileUsers, setShowMobileUsers] = useState(false)
+    const [chatLayout, setChatLayout] = useState<ChatLayoutMode>(() => {
+        if (typeof window === 'undefined') {
+            return 'classic'
+        }
+
+        const stored = window.localStorage.getItem(CHAT_LAYOUT_STORAGE_KEY)
+        return stored === 'modern' ? 'modern' : 'classic'
+    })
     // Collapse states für die Sections
     const [collapsedSections, setCollapsedSections] = useState({
         awake: false,
@@ -61,6 +141,21 @@ export function ChatPage() {
     const navigate = useNavigate()
     const currentUser = auth.currentUser
     const containerRef = useRef<HTMLDivElement>(null)
+    const { theme } = useTheme()
+    const isDark = theme === 'dark'
+    const isModern = chatLayout === 'modern'
+
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return
+        }
+
+        try {
+            window.localStorage.setItem(CHAT_LAYOUT_STORAGE_KEY, chatLayout)
+        } catch {
+            // Ignoriere lokale Speicherfehler (z.B. Privatmodus)
+        }
+    }, [chatLayout])
 
     // Verhindere Page-Scrolling
     useEffect(() => {
@@ -189,13 +284,14 @@ export function ChatPage() {
             // Erst mal alte Sessions aufräumen
             await cleanupOldSessions()
 
+            const browserWindow = window as typeof window & { __userDocId?: string }
+
             // Basis-Name für Display
             const shortId = currentUser.uid.slice(0, 8)
             const baseDisplayName = currentUser.displayName ||
                 currentUser.email?.split('@')[0] ||
                 `Gast_${shortId.slice(0, 4)}`
 
-            // FESTE Dokument-ID
             const initialName = currentUser.displayName ||
                 currentUser.email?.split('@')[0] ||
                 'user'
@@ -203,81 +299,85 @@ export function ChatPage() {
                 .replace(/[^a-z0-9]/g, '_')
                 .replace(/_+/g, '_')
                 .substring(0, 20)
-            const fixedDocId = `${cleanInitialName}_${shortId}`
+            const fallbackDocId = `${cleanInitialName}_${shortId}`
 
-            console.log(`📝 User-Dokument ID: ${fixedDocId}`)
+            const storedDocId = browserWindow.__userDocId || localStorage.getItem('userDocId') || null
 
-            const oldDocRef = doc(db, 'users', currentUser.uid)
-            const newDocRef = doc(db, 'users', fixedDocId)
+            let targetDocId = storedDocId || fallbackDocId
+            let targetDocRef = doc(db, 'users', targetDocId)
+            let targetDoc = await getDoc(targetDocRef)
+
+            // Wenn gespeichertes Dokument fehlt, auf Fallback umschalten
+            if (!targetDoc.exists() && storedDocId && storedDocId !== fallbackDocId) {
+                targetDocId = fallbackDocId
+                targetDocRef = doc(db, 'users', targetDocId)
+                targetDoc = await getDoc(targetDocRef)
+            }
+
+            const legacyDocRef = doc(db, 'users', currentUser.uid)
 
             try {
-                // Migration von altem Dokument
-                const oldDoc = await getDoc(oldDocRef)
-                if (oldDoc.exists() && currentUser.uid !== fixedDocId) {
-                    console.log('🔄 Migriere altes User-Dokument...')
-                    const oldData = oldDoc.data()
-
-                    await setDoc(newDocRef, {
-                        ...oldData,
-                        uid: currentUser.uid,
-                        docId: fixedDocId,
-                        displayName: oldData.displayName || baseDisplayName,
-                        status: 'awake',
-                        isOnline: true,
-                        lastSeen: serverTimestamp(),
-                        lastActivity: serverTimestamp(),
-                        migrated: true,
-                        migratedAt: serverTimestamp()
-                    })
-
-                    await deleteDoc(oldDocRef)
-                    console.log('✅ Migration erfolgreich!')
-
-                    setCurrentDisplayName(oldData.displayName || baseDisplayName)
-                    window.__userDocId = fixedDocId
-                    localStorage.setItem('userDocId', fixedDocId)
-                    return
-                }
-
-                // Check existing document
-                const newDoc = await getDoc(newDocRef)
-                if (newDoc.exists()) {
-                    const userData = newDoc.data()
+                if (targetDoc.exists()) {
+                    const userData = targetDoc.data()
                     setCurrentDisplayName(userData.displayName || baseDisplayName)
 
-                    await updateDoc(newDocRef, {
+                    await updateDoc(targetDocRef, {
                         status: 'awake',
                         isOnline: true,
                         lastSeen: serverTimestamp(),
                         lastActivity: serverTimestamp(),
                         photoURL: currentUser.photoURL || userData.photoURL || null,
-                        uid: currentUser.uid
-                    })
-
-                    console.log('✅ Existing user awake:', fixedDocId)
-                } else {
-                    // Neuer User
-                    setCurrentDisplayName(baseDisplayName)
-
-                    await setDoc(newDocRef, {
                         uid: currentUser.uid,
-                        docId: fixedDocId,
-                        displayName: baseDisplayName,
-                        email: currentUser.email || 'anonymous@chat.local',
-                        photoURL: currentUser.photoURL || null,
-                        status: 'awake',
-                        isOnline: true,
-                        lastSeen: serverTimestamp(),
-                        lastActivity: serverTimestamp(),
-                        createdAt: serverTimestamp(),
-                        provider: currentUser.providerData[0]?.providerId || 'anonymous'
+                        displayName: baseDisplayName
                     })
 
-                    console.log('✅ New user registered:', fixedDocId)
+                    console.log('✅ Existing user awake:', targetDocId)
+                } else {
+                    const legacyDoc = await getDoc(legacyDocRef)
+
+                    if (legacyDoc.exists() && legacyDoc.id !== targetDocId) {
+                        console.log('🔄 Migriere altes User-Dokument...')
+                        const oldData = legacyDoc.data()
+
+                        await setDoc(targetDocRef, {
+                            ...oldData,
+                            uid: currentUser.uid,
+                            docId: targetDocId,
+                            displayName: oldData.displayName || baseDisplayName,
+                            status: 'awake',
+                            isOnline: true,
+                            lastSeen: serverTimestamp(),
+                            lastActivity: serverTimestamp(),
+                            migrated: true,
+                            migratedAt: serverTimestamp()
+                        })
+
+                        await deleteDoc(legacyDocRef)
+                        setCurrentDisplayName(oldData.displayName || baseDisplayName)
+                        console.log('✅ Migration erfolgreich!')
+                    } else {
+                        setCurrentDisplayName(baseDisplayName)
+
+                        await setDoc(targetDocRef, {
+                            uid: currentUser.uid,
+                            docId: targetDocId,
+                            displayName: baseDisplayName,
+                            email: currentUser.email || 'anonymous@chat.local',
+                            photoURL: currentUser.photoURL || null,
+                            status: 'awake',
+                            isOnline: true,
+                            lastSeen: serverTimestamp(),
+                            lastActivity: serverTimestamp(),
+                            createdAt: serverTimestamp(),
+                            provider: currentUser.providerData[0]?.providerId || 'anonymous'
+                        })
+
+                        console.log('✅ New user registered:', targetDocId)
+                    }
                 }
 
-                window.__userDocId = fixedDocId
-                localStorage.setItem('userDocId', fixedDocId)
+                browserWindow.__userDocId = targetDocId
+                localStorage.setItem('userDocId', targetDocId)
             } catch (error) {
                 console.error('❌ Fehler beim User-Setup:', error)
             }
@@ -529,13 +629,345 @@ export function ChatPage() {
         const diff = now.getTime() - date.getTime()
         const minutes = Math.floor(diff / 60000)
 
-        if (minutes < 1) return 'Here now'
-        if (minutes < 2) return '(Idle) 1 minute'
-        if (minutes < 60) return `${minutes} minutes ago`
-        if (minutes < 120) return '(Extended AFK) 1 hour'
-        if (minutes < 1440) return `${Math.floor(minutes / 60)} hours ago`
-        return `${Math.floor(minutes / 1440)} days ago`
+        if (minutes < 1) return 'Gerade aktiv'
+        if (minutes === 1) return 'Vor 1 Minute aktiv'
+        if (minutes < 60) return `Vor ${minutes} Minuten aktiv`
+
+        const hours = Math.floor(minutes / 60)
+        if (hours === 1) return 'Vor 1 Stunde aktiv'
+        if (hours < 24) return `Vor ${hours} Stunden aktiv`
+
+        const days = Math.floor(hours / 24)
+        return `Vor ${days} ${days === 1 ? 'Tag' : 'Tagen'} aktiv`
     }
+
+    const formatDebugId = (value?: string | null) => {
+        if (!value) return '–'
+        if (value.length <= 8) return value
+        return `${value.slice(0, 6)}…`
+    }
+
+    const layoutClasses = useMemo<LayoutClassTokens>(() => {
+        const classicDark: LayoutClassTokens = {
+            pageBackgroundClass: 'bg-gradient-to-br from-[#0b1120] via-[#10172a] to-[#0f172a]',
+            cardShellClass: 'border border-[#1d3a7a] bg-[#0f172a]/95 backdrop-blur-sm shadow-[0_20px_45px_rgba(8,47,73,0.45)] text-[#e2e8f0]',
+            innerPanelBackground: 'bg-[#0f172a]/95',
+            headerGradientClass: 'bg-gradient-to-r from-[#1e3a8a] via-[#1d4ed8] to-[#1e3a8a]',
+            headerMutedTextClass: 'text-[#93c5fd]',
+            chatBoardContainerClass: 'border border-[#1d3a7a] bg-[#0f172a] shadow-[0_12px_30px_rgba(8,47,73,0.25)]',
+            chatBarContainerClass: 'border border-[#1d3a7a] bg-[#101a32]/95 shadow-[0_10px_20px_rgba(8,47,73,0.25)] backdrop-blur',
+            mobileListContainerClass: 'border border-[#1d3a7a] bg-[#101a32]/95 shadow-[0_12px_28px_rgba(8,47,73,0.3)]',
+            sidebarContainerClass: 'border border-[#1d3a7a] bg-[#101a32]/95 shadow-[0_12px_28px_rgba(8,47,73,0.28)]',
+            sidebarHeaderClass: 'bg-gradient-to-r from-[#1e3a8a]/80 via-[#1d4ed8]/70 to-[#1e3a8a]/80 border-b border-[#243b73] text-[#bfdbfe]',
+            sidebarFooterClass: 'border-t border-[#243b73] bg-[#0f1a33]',
+            debugPanelClass: 'border-t border-[#243b73] bg-[#0f172a]/90 text-[#9fb7dd]',
+            debugLabelClass: 'text-[#7d90c5]',
+            debugValueClass: 'text-[#dbeafe]',
+            debugValueAccentClass: 'text-[#93c5fd]',
+            mobileToggleButtonClass: 'inline-flex items-center gap-1 rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] transition',
+            backgroundGlowTopLeft: 'bg-[radial-gradient(circle,#1e3a8a33,transparent_70%)]',
+            backgroundGlowTopRight: 'bg-[radial-gradient(circle,#1d4ed820,transparent_70%)]',
+            backgroundGlowBottom: 'bg-[radial-gradient(circle,#312e8130,transparent_70%)]',
+            actionButtonClassMobile: 'flex w-full items-center justify-center gap-1.5 rounded-md border border-[#1d3a7a] bg-[#14203d] px-3 py-2 text-[11px] font-medium text-[#bfdbfe] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-transform hover:-translate-y-[0.5px] disabled:cursor-not-allowed disabled:opacity-60',
+            actionButtonClassDesktop: 'w-full rounded-md border border-[#1d3a7a] bg-[#14203d] px-3 py-1.5 text-[11px] font-medium text-[#bfdbfe] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-transform hover:-translate-y-[0.5px] disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center gap-1.5',
+            modalOverlayClass: 'fixed inset-0 bg-[#020617]/80 backdrop-blur-sm flex items-center justify-center z-50 p-4',
+            shareCardClass: 'relative w-full max-w-md rounded-2xl border border-[#1d3a7a] bg-[#0f172a]/95 text-[#dbeafe] shadow-[0_18px_40px_rgba(8,47,73,0.55)] p-6',
+            shareGlowClass: 'absolute -top-8 right-8 w-24 h-24 bg-[radial-gradient(circle,#1d4ed820,transparent_70%)] blur-xl',
+            shareHeadingClass: 'text-lg font-semibold text-[#dbeafe]',
+            shareTextClass: 'mt-2 text-sm text-[#9fb7dd]',
+            shareInputClass: 'mt-4 w-full rounded-md border border-[#1d3a7a] bg-[#0b1225] px-3 py-2 text-sm text-[#bfdbfe] focus:outline-none focus:border-[#60a5fa] focus:ring-2 focus:ring-[#1d4ed8]',
+            shareButtonClass: 'rounded-md border border-[#1d3a7a] bg-[#14203d] px-3 py-2 text-[#bfdbfe] font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-transform hover:-translate-y-[2px]',
+            logoutCardClass: 'relative w-full max-w-md rounded-2xl border border-[#1d3a7a] bg-[#0f172a]/95 text-[#dbeafe] shadow-[0_18px_40px_rgba(8,47,73,0.55)] p-6',
+            logoutGlowClass: 'absolute -top-8 right-8 w-24 h-24 bg-[radial-gradient(circle,#1d4ed820,transparent_70%)] blur-xl',
+            logoutIconWrapClass: 'w-10 h-10 rounded-full border border-[#b91c1c] bg-gradient-to-b from-[#3f1d1d] to-[#2c1515] flex items-center justify-center',
+            logoutTitleClass: 'text-lg font-semibold text-[#dbeafe]',
+            logoutSubtitleClass: 'text-xs text-[#93c5fd]',
+            logoutInfoBoxClass: 'bg-[#101a32] border border-[#1d3a7a] rounded-lg p-4 mb-4',
+            logoutInfoTextClass: 'text-sm text-[#bfdbfe]',
+            logoutInfoSubTextClass: 'text-xs text-[#93c5fd] mt-2',
+            logoutCancelButtonClass: 'flex-1 rounded-md border border-[#1d3a7a] bg-[#14203d] px-3 py-2 text-sm font-medium text-[#bfdbfe] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-transform hover:-translate-y-[1px]',
+            logoutConfirmButtonClass: 'flex-1 rounded-md border border-[#b91c1c] bg-gradient-to-b from-[#451a1a] to-[#2d0f0f] px-3 py-2 text-sm font-semibold text-[#fca5a5] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-transform hover:-translate-y-[1px]'
+        }
+
+        const classicLight: LayoutClassTokens = {
+            pageBackgroundClass: 'bg-gradient-to-br from-[#9ecdfb] via-[#c2dcff] to-[#f1f6ff]',
+            cardShellClass: 'border border-[#7fa6f7] bg-white/95 backdrop-blur-sm shadow-[0_20px_45px_rgba(40,94,173,0.28)]',
+            innerPanelBackground: 'bg-[#f9fbff]/95',
+            headerGradientClass: 'bg-gradient-to-r from-[#0a4bdd] via-[#2a63f1] to-[#0a4bdd]',
+            headerMutedTextClass: 'text-[#d7e6ff]',
+            chatBoardContainerClass: 'border border-[#7a96df] bg-white shadow-[0_12px_30px_rgba(58,92,173,0.15)]',
+            chatBarContainerClass: 'border border-[#7a96df] bg-white/95 shadow-[0_10px_20px_rgba(58,92,173,0.12)] backdrop-blur',
+            mobileListContainerClass: 'border border-[#7a96df] bg-white/95 shadow-[0_12px_28px_rgba(58,92,173,0.18)]',
+            sidebarContainerClass: 'border border-[#7a96df] bg-white/95 shadow-[0_12px_28px_rgba(58,92,173,0.18)]',
+            sidebarHeaderClass: 'bg-gradient-to-r from-[#eaf1ff] to-[#dfe9ff] border-b border-[#c7d9ff] text-[#0a4bdd]',
+            sidebarFooterClass: 'border-t border-[#c7d9ff] bg-[#f2f6ff]',
+            debugPanelClass: 'border-t border-[#c7d9ff] bg-white/90 text-[#5c6fb9]',
+            debugLabelClass: 'text-[#6c83ca]',
+            debugValueClass: 'text-[#0a4bdd]',
+            debugValueAccentClass: 'text-[#3f58b1]',
+            mobileToggleButtonClass: 'inline-flex items-center gap-1 rounded-full bg-white/20 px-3 py-1.5 text-[11px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] transition',
+            backgroundGlowTopLeft: 'bg-[radial-gradient(circle,#ffffff75,transparent_70%)]',
+            backgroundGlowTopRight: 'bg-[radial-gradient(circle,#7fa6ff4d,transparent_70%)]',
+            backgroundGlowBottom: 'bg-[radial-gradient(circle,#c7d9ff80,transparent_70%)]',
+            actionButtonClassMobile: 'flex w-full items-center justify-center gap-1.5 rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-2 text-[11px] font-medium text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[0.5px] disabled:cursor-not-allowed disabled:opacity-60',
+            actionButtonClassDesktop: 'w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-1.5 text-[11px] font-medium text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[0.5px] disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center gap-1.5',
+            modalOverlayClass: 'fixed inset-0 bg-[#1a225040]/60 backdrop-blur-sm flex items-center justify-center z-50 p-4',
+            shareCardClass: 'relative w-full max-w-md rounded-2xl border border-[#7fa6f7] bg-white/95 shadow-[0_18px_40px_rgba(40,94,173,0.25)] p-6',
+            shareGlowClass: 'absolute -top-8 right-8 w-24 h-24 bg-[radial-gradient(circle,#7fa6ff4d,transparent_70%)] blur-xl',
+            shareHeadingClass: 'text-lg font-semibold text-[#0a4bdd]',
+            shareTextClass: 'mt-2 text-sm text-[#4b5f9b]',
+            shareInputClass: 'mt-4 w-full rounded-md border border-[#7a96df] bg-[#f5f8ff] px-3 py-2 text-sm text-[#0a4bdd] focus:outline-none focus:ring-2 focus:ring-[#b7c8ff]',
+            shareButtonClass: 'rounded-md border border-[#7a96df] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-2 text-[#0a4bdd] font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-transform hover:-translate-y-[2px]',
+            logoutCardClass: 'relative w-full max-w-md rounded-2xl border border-[#7fa6f7] bg-white/95 shadow-[0_18px_40px_rgba(40,94,173,0.25)] p-6',
+            logoutGlowClass: 'absolute -top-8 right-8 w-24 h-24 bg-[radial-gradient(circle,#7fa6ff4d,transparent_70%)] blur-xl',
+            logoutIconWrapClass: 'w-10 h-10 rounded-full border border-[#9eb8ff] bg-gradient-to-b from-[#fff3e0] to-[#ffe6cc] flex items-center justify-center',
+            logoutTitleClass: 'text-lg font-semibold text-[#0a4bdd]',
+            logoutSubtitleClass: 'text-xs text-[#6c83ca]',
+            logoutInfoBoxClass: 'bg-[#f5f8ff] border border-[#c7d9ff] rounded-lg p-4 mb-4',
+            logoutInfoTextClass: 'text-sm text-[#4b5f9b]',
+            logoutInfoSubTextClass: 'text-xs text-[#6c83ca] mt-2',
+            logoutCancelButtonClass: 'flex-1 rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-2 text-sm font-medium text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-transform hover:-translate-y-[1px]',
+            logoutConfirmButtonClass: 'flex-1 rounded-md border border-[#dc2626] bg-gradient-to-b from-[#fef2f2] to-[#fee2e2] px-3 py-2 text-sm font-semibold text-[#dc2626] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-transform hover:-translate-y-[1px]'
+        }
+
+        const modernDark: LayoutClassTokens = {
+            pageBackgroundClass: 'bg-gradient-to-br from-[#0d0f15] via-[#161925] to-[#1f2430]',
+            cardShellClass: 'border border-slate-800/80 bg-[#1f242f]/95 backdrop-blur-2xl text-slate-100 shadow-[0_24px_60px_rgba(6,10,20,0.55)]',
+            innerPanelBackground: 'bg-[#1a1f2a]/90 backdrop-blur-xl',
+            headerGradientClass: 'bg-gradient-to-r from-[#1e293b] via-[#232c3f] to-[#1e1f29] border-b border-slate-700/70',
+            headerMutedTextClass: 'text-slate-400',
+            chatBoardContainerClass: 'border border-slate-800/60 bg-[#161b24]/90 shadow-[0_20px_48px_rgba(5,8,15,0.55)] backdrop-blur-xl',
+            chatBarContainerClass: 'border border-slate-800/70 bg-[#161c26]/90 shadow-[0_18px_38px_rgba(5,8,15,0.45)] backdrop-blur-2xl ring-1 ring-slate-700/60',
+            mobileListContainerClass: 'border border-slate-800/70 bg-[#1b202c]/90 shadow-[0_20px_40px_rgba(5,8,16,0.5)] backdrop-blur-xl',
+            sidebarContainerClass: 'border border-slate-800/80 bg-[#1b202c]/90 shadow-[0_24px_48px_rgba(5,8,16,0.55)] backdrop-blur-xl ring-1 ring-slate-700/50',
+            sidebarHeaderClass: 'bg-[#1f2530]/90 border-b border-slate-700/60 text-slate-100/80',
+            sidebarFooterClass: 'border-t border-slate-800/70 bg-[#171c25]/90',
+            debugPanelClass: 'border-t border-slate-800/70 bg-[#141923]/90 text-slate-400',
+            debugLabelClass: 'text-slate-500',
+            debugValueClass: 'text-slate-200',
+            debugValueAccentClass: 'text-[#60a5fa]',
+            mobileToggleButtonClass: 'inline-flex items-center gap-1 rounded-full border border-slate-700/70 bg-[#202733]/80 px-3 py-1.5 text-[11px] font-semibold text-slate-200 shadow-[0_8px_18px_rgba(15,19,28,0.45)] transition hover:-translate-y-[1px]',
+            backgroundGlowTopLeft: 'bg-[radial-gradient(circle,#5865f233,transparent_70%)]',
+            backgroundGlowTopRight: 'bg-[radial-gradient(circle,#7dd3fc22,transparent_70%)]',
+            backgroundGlowBottom: 'bg-[radial-gradient(circle,#22c55e25,transparent_70%)]',
+            actionButtonClassMobile: 'flex w-full items-center justify-center gap-1.5 rounded-md border border-slate-700/70 bg-[#202733]/80 px-3 py-2 text-[11px] font-medium text-slate-100 shadow-[0_12px_26px_rgba(15,19,28,0.45)] transition-all hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-60',
+            actionButtonClassDesktop: 'w-full rounded-md border border-slate-700/70 bg-[#202733]/80 px-3 py-1.5 text-[11px] font-medium text-slate-100 shadow-[0_12px_26px_rgba(15,19,28,0.45)] transition-all hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center gap-1.5',
+            modalOverlayClass: 'fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-50 p-4',
+            shareCardClass: 'relative w-full max-w-md rounded-2xl border border-slate-800/80 bg-[#1f242f]/95 text-slate-100 shadow-[0_26px_55px_rgba(6,10,20,0.65)] p-6 backdrop-blur-xl',
+            shareGlowClass: 'absolute -top-8 right-8 w-24 h-24 bg-[radial-gradient(circle,#5865f235,transparent_70%)] blur-2xl',
+            shareHeadingClass: 'text-lg font-semibold text-slate-100',
+            shareTextClass: 'mt-2 text-sm text-slate-400',
+            shareInputClass: 'mt-4 w-full rounded-md border border-slate-700 bg-[#111720]/90 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-[#60a5fa] focus:ring-2 focus:ring-[#60a5fa]/40',
+            shareButtonClass: 'rounded-md border border-slate-700/80 bg-[#202733]/85 px-3 py-2 text-slate-100 font-medium shadow-[0_10px_24px_rgba(15,19,28,0.45)] transition-transform hover:-translate-y-[1px]',
+            logoutCardClass: 'relative w-full max-w-md rounded-2xl border border-red-500/40 bg-[#1f242f]/95 text-slate-100 shadow-[0_28px_58px_rgba(6,10,20,0.6)] p-6 backdrop-blur-xl',
+            logoutGlowClass: 'absolute -top-10 right-8 w-28 h-28 bg-[radial-gradient(circle,#f8717130,transparent_70%)] blur-2xl',
+            logoutIconWrapClass: 'w-10 h-10 rounded-full border border-red-500/40 bg-gradient-to-b from-[#2a0f12] to-[#16080a] flex items-center justify-center',
+            logoutTitleClass: 'text-lg font-semibold text-slate-100',
+            logoutSubtitleClass: 'text-xs text-slate-400',
+            logoutInfoBoxClass: 'bg-[#171c25]/90 border border-slate-700/80 rounded-lg p-4 mb-4',
+            logoutInfoTextClass: 'text-sm text-slate-200',
+            logoutInfoSubTextClass: 'text-xs text-slate-400 mt-2',
+            logoutCancelButtonClass: 'flex-1 rounded-md border border-slate-700/70 bg-[#202733]/85 px-3 py-2 text-sm font-medium text-slate-100 shadow-[0_10px_24px_rgba(15,19,28,0.45)] transition-transform hover:-translate-y-[1px]',
+            logoutConfirmButtonClass: 'flex-1 rounded-md border border-red-500/50 bg-gradient-to-b from-[#2c0f12] to-[#150809] px-3 py-2 text-sm font-semibold text-red-300 shadow-[0_10px_24px_rgba(44,15,18,0.55)] transition-transform hover:-translate-y-[1px]'
+        }
+
+        const modernLight: LayoutClassTokens = {
+            pageBackgroundClass: 'bg-gradient-to-br from-[#f0fdf4] via-[#ffffff] to-[#e0f2f1]',
+            cardShellClass: 'border border-emerald-200/80 bg-white/90 backdrop-blur-2xl shadow-[0_26px_60px_rgba(15,94,78,0.16)]',
+            innerPanelBackground: 'bg-white/85 backdrop-blur-xl',
+            headerGradientClass: 'bg-gradient-to-r from-[#e8fff1] via-[#d8fce5] to-[#e0f2f1] border-b border-emerald-200/70',
+            headerMutedTextClass: 'text-emerald-700/70',
+            chatBoardContainerClass: 'border border-emerald-200/60 bg-white/90 shadow-[0_20px_45px_rgba(15,94,78,0.12)] backdrop-blur-xl',
+            chatBarContainerClass: 'border border-emerald-200/60 bg-white/90 shadow-[0_18px_40px_rgba(15,94,78,0.12)] backdrop-blur-xl ring-1 ring-emerald-200/70',
+            mobileListContainerClass: 'border border-emerald-200/70 bg-white/90 shadow-[0_22px_42px_rgba(15,94,78,0.16)] backdrop-blur-xl',
+            sidebarContainerClass: 'border border-emerald-200/70 bg-white/90 shadow-[0_24px_48px_rgba(15,94,78,0.16)] backdrop-blur-xl ring-1 ring-emerald-200/60',
+            sidebarHeaderClass: 'bg-[#eafaf1] border-b border-emerald-200 text-emerald-800',
+            sidebarFooterClass: 'border-t border-emerald-200 bg-[#f0fff4]',
+            debugPanelClass: 'border-t border-emerald-200 bg-white/85 text-emerald-700/70',
+            debugLabelClass: 'text-emerald-500',
+            debugValueClass: 'text-emerald-800',
+            debugValueAccentClass: 'text-emerald-600',
+            mobileToggleButtonClass: 'inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-white/85 px-3 py-1.5 text-[11px] font-semibold text-emerald-700 shadow-[0_10px_20px_rgba(15,94,78,0.12)] transition hover:-translate-y-[1px]',
+            backgroundGlowTopLeft: 'bg-[radial-gradient(circle,#6ee7b733,transparent_70%)]',
+            backgroundGlowTopRight: 'bg-[radial-gradient(circle,#86efac33,transparent_70%)]',
+            backgroundGlowBottom: 'bg-[radial-gradient(circle,#a5f3fc30,transparent_70%)]',
+            actionButtonClassMobile: 'flex w-full items-center justify-center gap-1.5 rounded-md border border-emerald-200 bg-white/85 px-3 py-2 text-[11px] font-medium text-emerald-700 shadow-[0_12px_26px_rgba(15,94,78,0.14)] transition-all hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-60',
+            actionButtonClassDesktop: 'w-full rounded-md border border-emerald-200 bg-white/85 px-3 py-1.5 text-[11px] font-medium text-emerald-700 shadow-[0_12px_26px_rgba(15,94,78,0.14)] transition-all hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center gap-1.5',
+            modalOverlayClass: 'fixed inset-0 bg-emerald-900/20 backdrop-blur-sm flex items-center justify-center z-50 p-4',
+            shareCardClass: 'relative w-full max-w-md rounded-2xl border border-emerald-200 bg-white/90 text-emerald-900 shadow-[0_28px_60px_rgba(15,94,78,0.18)] p-6 backdrop-blur-xl',
+            shareGlowClass: 'absolute -top-8 right-8 w-24 h-24 bg-[radial-gradient(circle,#6ee7b733,transparent_70%)] blur-2xl',
+            shareHeadingClass: 'text-lg font-semibold text-emerald-800',
+            shareTextClass: 'mt-2 text-sm text-emerald-600',
+            shareInputClass: 'mt-4 w-full rounded-md border border-emerald-200 bg-white/90 px-3 py-2 text-sm text-emerald-900 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200/60',
+            shareButtonClass: 'rounded-md border border-emerald-200 bg-white px-3 py-2 text-emerald-700 font-medium shadow-[0_12px_22px_rgba(15,94,78,0.14)] transition-transform hover:-translate-y-[1px]',
+            logoutCardClass: 'relative w-full max-w-md rounded-2xl border border-red-300/60 bg-white/90 text-emerald-900 shadow-[0_28px_60px_rgba(15,94,78,0.18)] p-6 backdrop-blur-xl',
+            logoutGlowClass: 'absolute -top-10 right-8 w-28 h-28 bg-[radial-gradient(circle,#fca5a530,transparent_70%)] blur-2xl',
+            logoutIconWrapClass: 'w-10 h-10 rounded-full border border-red-300/60 bg-gradient-to-b from-[#fff1f2] to-[#ffe4e6] flex items-center justify-center',
+            logoutTitleClass: 'text-lg font-semibold text-emerald-900',
+            logoutSubtitleClass: 'text-xs text-emerald-600',
+            logoutInfoBoxClass: 'bg-[#f5fffa] border border-emerald-200 rounded-lg p-4 mb-4',
+            logoutInfoTextClass: 'text-sm text-emerald-800',
+            logoutInfoSubTextClass: 'text-xs text-emerald-600 mt-2',
+            logoutCancelButtonClass: 'flex-1 rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm font-medium text-emerald-700 shadow-[0_10px_22px_rgba(15,94,78,0.12)] transition-transform hover:-translate-y-[1px]',
+            logoutConfirmButtonClass: 'flex-1 rounded-md border border-red-300/60 bg-gradient-to-b from-[#fff1f2] to-[#ffe4e6] px-3 py-2 text-sm font-semibold text-red-500 shadow-[0_12px_24px_rgba(248,113,113,0.25)] transition-transform hover:-translate-y-[1px]'
+        }
+
+        if (isModern) {
+            return isDark ? modernDark : modernLight
+        }
+        return isDark ? classicDark : classicLight
+    }, [isModern, isDark])
+
+    const {
+        pageBackgroundClass,
+        cardShellClass,
+        innerPanelBackground,
+        headerGradientClass,
+        headerMutedTextClass,
+        chatBoardContainerClass,
+        chatBarContainerClass,
+        mobileListContainerClass,
+        sidebarContainerClass,
+        sidebarHeaderClass,
+        sidebarFooterClass,
+        debugPanelClass,
+        debugLabelClass,
+        debugValueClass,
+        debugValueAccentClass,
+        mobileToggleButtonClass,
+        backgroundGlowTopLeft,
+        backgroundGlowTopRight,
+        backgroundGlowBottom,
+        actionButtonClassMobile,
+        actionButtonClassDesktop,
+        modalOverlayClass,
+        shareCardClass,
+        shareGlowClass,
+        shareHeadingClass,
+        shareTextClass,
+        shareInputClass,
+        shareButtonClass,
+        logoutCardClass,
+        logoutGlowClass,
+        logoutIconWrapClass,
+        logoutTitleClass,
+        logoutSubtitleClass,
+        logoutInfoBoxClass,
+        logoutInfoTextClass,
+        logoutInfoSubTextClass,
+        logoutCancelButtonClass,
+        logoutConfirmButtonClass
+    } = layoutClasses
+
+    const statusStyles = useMemo<StatusStyleTokens>(() => {
+        const classic: StatusStyleTokens = {
+            awake: {
+                dark: {
+                    self: 'border border-[#1e3a7a] bg-[#12213d]',
+                    other: 'border border-transparent',
+                    hover: 'hover:bg-[#1b2d4b]',
+                    text: 'text-[#dbeafe]',
+                    subText: 'text-[#93c5fd]'
+                },
+                light: {
+                    self: 'border border-[#c7d9ff] bg-[#f0f7ff]',
+                    other: 'border border-transparent',
+                    hover: 'hover:bg-[#e5f3ff]',
+                    text: 'text-[#0f3fae]',
+                    subText: 'text-[#6c83ca]'
+                }
+            },
+            idle: {
+                dark: {
+                    self: 'border border-[#f97316] bg-[#3a2614]',
+                    other: 'border border-transparent',
+                    hover: 'hover:bg-[#4a2f17]',
+                    text: 'text-[#facc15]',
+                    subText: 'text-[#fbd38d]'
+                },
+                light: {
+                    self: 'border border-[#ffd9b3] bg-[#fff8f0]',
+                    other: 'border border-transparent',
+                    hover: 'hover:bg-[#fff3e0]',
+                    text: 'text-[#b87100]',
+                    subText: 'text-[#cc9966]'
+                }
+            },
+            gone: {
+                dark: {
+                    self: 'border border-[#334155] bg-[#111827]',
+                    other: 'border border-transparent',
+                    hover: 'hover:bg-[#1f2937]',
+                    text: 'text-[#cbd5f5]',
+                    subText: 'text-[#94a3b8]'
+                },
+                light: {
+                    self: 'border border-gray-200 bg-gray-50',
+                    other: 'border border-transparent',
+                    hover: 'hover:bg-gray-50',
+                    text: 'text-gray-600',
+                    subText: 'text-gray-400'
+                }
+            }
+        }
+
+        const modern: StatusStyleTokens = {
+            awake: {
+                dark: {
+                    self: 'border border-[#38bdf8]/60 bg-[#10254b]/80 shadow-[0_12px_24px_rgba(16,37,75,0.35)]',
+                    other: 'border border-transparent bg-[#0f1f3d]/40',
+                    hover: 'hover:bg-[#132c5e]/70',
+                    text: 'text-[#e0eaff]',
+                    subText: 'text-[#8fb5ff]'
+                },
+                light: {
+                    self: 'border border-[#60a5fa]/60 bg-[#e2f0ff]',
+                    other: 'border border-transparent bg-[#f3f8ff]/70',
+                    hover: 'hover:bg-[#eef4ff]',
+                    text: 'text-[#1e3a8a]',
+                    subText: 'text-[#4c65aa]'
+                }
+            },
+            idle: {
+                dark: {
+                    self: 'border border-[#f97316]/60 bg-[#2d1a0d]/80 shadow-[0_10px_20px_rgba(45,26,13,0.4)]',
+                    other: 'border border-transparent bg-[#1f1a2f]/40',
+                    hover: 'hover:bg-[#3b2413]/70',
+                    text: 'text-[#fbbf24]',
+                    subText: 'text-[#f59e0b]'
+                },
+                light: {
+                    self: 'border border-[#f97316]/50 bg-[#fff1e0]',
+                    other: 'border border-transparent bg-[#fff7ed]/60',
+                    hover: 'hover:bg-[#fff3e0]',
+                    text: 'text-[#b45309]',
+                    subText: 'text-[#d97706]'
+                }
+            },
+            gone: {
+                dark: {
+                    self: 'border border-[#475569]/60 bg-[#111827]/70',
+                    other: 'border border-transparent bg-[#0f172a]/30',
+                    hover: 'hover:bg-[#1f2937]/60',
+                    text: 'text-[#94a3b8]',
+                    subText: 'text-[#64748b]'
+                },
+                light: {
+                    self: 'border border-[#cbd5f5] bg-[#f8fafc]',
+                    other: 'border border-transparent bg-[#f1f5f9]',
+                    hover: 'hover:bg-[#eef2f7]',
+                    text: 'text-[#64748b]',
+                    subText: 'text-[#94a3b8]'
+                }
+            }
+        }
+
+        return isModern ? modern : classic
+    }, [isModern])
+
+    const headerStatusColors = isModern
+        ? { awake: '#38bdf8', idle: '#f59e0b' }
+        : { awake: '#4CAF50', idle: '#FF9800' }
 
     // Toggle collapse state
     const toggleSection = (section: 'awake' | 'idle' | 'gone') => {
@@ -545,242 +977,314 @@ export function ChatPage() {
         }))
     }
 
-    // User Status Component mit FESTER Höhe statt flexibler
-    const UserStatusList = ({ isMobile = false }: { isMobile?: boolean }) => (
-        <div className={`${isMobile ? '' : 'flex-1 overflow-y-auto'} p-3 space-y-4 text-xs`}>
-            {/* Awake Users */}
-            <div>
-                <div
-                    className="flex items-center gap-2 font-semibold mb-2 cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={() => toggleSection('awake')}
-                    style={{ color: '#4CAF50' }}
-                >
-                    <CirclePlus className="w-5 h-5" strokeWidth={3} />
-                    <span>Awake ({awakeUsers.length})</span>
-                    {collapsedSections.awake ?
-                        <ChevronsUp className="w-3 h-3 ml-auto" strokeWidth={2} /> :
-                        <ChevronsDown className="w-3 h-3 ml-auto" strokeWidth={2} />
-                    }
-                </div>
-                {!collapsedSections.awake && (
-                    <div className="space-y-1 pl-6">
-                        {awakeUsers.length > 0 ? (
-                            awakeUsers.map(user => (
-                                <div
-                                    key={user.id}
-                                    className={`flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-[#e5f3ff] transition-colors ${
-                                        user.uid === currentUser?.uid ? 'bg-[#f0f7ff] border border-[#c7d9ff]' : ''
-                                    }`}
-                                >
-                                    <CircleDot className="w-3 h-3" strokeWidth={4} style={{ color: '#4CAF50' }} />
-                                    <div className="flex-1 min-w-0">
-                                        <div className="font-medium truncate text-[#0f3fae]">
-                                            {user.displayName}
-                                            {user.uid === currentUser?.uid && ' (Du)'}
-                                        </div>
-                                        <div className="text-[10px] text-[#6c83ca]">
-                                            {formatLastSeen(user.lastActivity, user.lastSeen)}
-                                        </div>
-                                    </div>
-                                </div>
-                            ))
-                        ) : (
-                            <div className="text-[#6c83ca] italic pl-2">Nobody awake...</div>
-                        )}
-                    </div>
-                )}
-            </div>
+    // User Status Component mit Layout-Wechsel je nach Modus
+    const UserStatusList = ({ isMobile = false }: { isMobile?: boolean }) => {
+        const statusColorPalette = isModern
+            ? { awake: '#60a5fa', idle: '#fbbf24', gone: '#94a3b8' }
+            : { awake: '#4CAF50', idle: '#FF9800', gone: '#9E9E9E' }
 
-            {/* Idle Users */}
-            <div>
-                <div
-                    className="flex items-center gap-2 font-semibold mb-2 cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={() => toggleSection('idle')}
-                    style={{ color: '#FF9800' }}
-                >
-                    <CircleEllipsis className="w-5 h-5" strokeWidth={3} />
-                    <span>Idle ({idleUsers.length})</span>
-                    {collapsedSections.idle ?
-                        <ChevronsUp className="w-3 h-3 ml-auto" strokeWidth={2} /> :
-                        <ChevronsDown className="w-3 h-3 ml-auto" strokeWidth={2} />
-                    }
-                </div>
-                {!collapsedSections.idle && (
-                    <div className="space-y-1 pl-6">
-                        {idleUsers.length > 0 ? (
-                            idleUsers.map(user => (
-                                <div
-                                    key={user.id}
-                                    className={`flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-[#fff3e0] transition-colors ${
-                                        user.uid === currentUser?.uid ? 'bg-[#fff8f0] border border-[#ffd9b3]' : ''
-                                    }`}
-                                >
-                                    <CircleDot className="w-3 h-3" strokeWidth={4} style={{ color: '#FF9800' }} />
-                                    <div className="flex-1 min-w-0">
-                                        <div className="font-medium truncate text-[#b87100]">
-                                            {user.displayName}
-                                            {user.uid === currentUser?.uid && ' (Du)'}
-                                        </div>
-                                        <div className="text-[10px] text-[#cc9966]">
-                                            {formatLastSeen(user.lastActivity, user.lastSeen)}
-                                        </div>
-                                    </div>
-                                </div>
-                            ))
-                        ) : (
-                            <div className="text-[#cc9966] italic pl-2">Nobody idle...</div>
-                        )}
-                    </div>
-                )}
-            </div>
+        const emptyStateClasses = isModern
+            ? {
+                awake: isDark ? 'text-slate-500' : 'text-emerald-500',
+                idle: isDark ? 'text-amber-400/80' : 'text-amber-600',
+                gone: isDark ? 'text-slate-500' : 'text-slate-400'
+            }
+            : {
+                awake: isDark ? 'text-[#647bb0]' : 'text-[#6c83ca]',
+                idle: isDark ? 'text-[#f3c78a]' : 'text-[#cc9966]',
+                gone: isDark ? 'text-[#64748b]' : 'text-gray-400'
+            }
 
-            {/* Gone Users - mit Grau statt Rot */}
-            <div>
+        const renderUserCard = (user: OnlineUser, status: UserStatus, faded?: boolean) => {
+            const variant = statusStyles[status][isDark ? 'dark' : 'light']
+            const isSelfUser = user.uid === currentUser?.uid
+            const cardClass = cn(
+                'flex items-center gap-3 rounded-md px-2 py-2 transition-colors',
+                isSelfUser ? variant.self : variant.other,
+                variant.hover,
+                faded && 'opacity-60'
+            )
+            const iconColor = faded ? '#9E9E9E' : statusColorPalette[status]
+            const initials = user.displayName?.[0]?.toUpperCase() || 'A'
+
+            return (
+                <div key={user.id} className={cardClass}>
+                    {isModern ? (
+                        <div className="relative">
+                            <Avatar className={cn('h-8 w-8 border', isDark ? 'border-slate-800/60' : 'border-emerald-200/70')}>
+                                {user.photoURL ? (
+                                    <AvatarImage src={user.photoURL} alt={user.displayName} />
+                                ) : (
+                                    <AvatarFallback>{initials}</AvatarFallback>
+                                )}
+                            </Avatar>
+                            <span
+                                className={cn(
+                                    'absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2',
+                                    isDark ? 'border-[#1a1f2a]' : 'border-white'
+                                )}
+                                style={{ backgroundColor: iconColor }}
+                            />
+                        </div>
+                    ) : (
+                        <CircleDot className="w-3 h-3" strokeWidth={4} style={{ color: iconColor }} />
+                    )}
+                    <div className="flex-1 min-w-0">
+                        <div className={cn('font-medium truncate', variant.text)}>
+                            {user.displayName}
+                            {isSelfUser && ' (Du)'}
+                        </div>
+                        <div className={cn('text-[10px]', variant.subText)}>
+                            {formatLastSeen(user.lastActivity, user.lastSeen)}
+                        </div>
+                    </div>
+                </div>
+            )
+        }
+
+        const renderSection = (
+            status: UserStatus,
+            icon: React.ReactNode,
+            label: string,
+            users: OnlineUser[],
+            collapsed: boolean,
+            toggle: () => void
+        ) => (
+            <section key={status}>
                 <div
                     className="flex items-center gap-2 font-semibold mb-2 cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={() => toggleSection('gone')}
-                    style={{ color: '#9E9E9E' }}
+                    onClick={toggle}
+                    style={{ color: statusColorPalette[status] }}
                 >
-                    <CircleSlash className="w-5 h-5" strokeWidth={3} />
-                    <span>Gone ({goneUsers.length})</span>
-                    {collapsedSections.gone ?
-                        <ChevronsUp className="w-3 h-3 ml-auto" strokeWidth={2} /> :
+                    {icon}
+                    <span>
+                        {label} ({users.length})
+                    </span>
+                    {collapsed ? (
+                        <ChevronsUp className="w-3 h-3 ml-auto" strokeWidth={2} />
+                    ) : (
                         <ChevronsDown className="w-3 h-3 ml-auto" strokeWidth={2} />
-                    }
+                    )}
                 </div>
-                {!collapsedSections.gone && (
+                {!collapsed && (
                     <div className="space-y-1 pl-6">
-                        {goneUsers.length > 0 ? (
-                            goneUsers.map(user => (
-                                <div
-                                    key={user.id}
-                                    className={`flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-50 transition-colors opacity-60 ${
-                                        user.uid === currentUser?.uid ? 'bg-gray-50 border border-gray-200' : ''
-                                    }`}
-                                >
-                                    <CircleDot className="w-3 h-3" strokeWidth={4} style={{ color: '#9E9E9E' }} />
-                                    <div className="flex-1 min-w-0">
-                                        <div className="font-medium truncate text-gray-600">
-                                            {user.displayName}
-                                            {user.uid === currentUser?.uid && ' (Du)'}
-                                        </div>
-                                        <div className="text-[10px] text-gray-400">
-                                            {formatLastSeen(user.lastActivity, user.lastSeen)}
-                                        </div>
-                                    </div>
-                                </div>
-                            ))
+                        {users.length > 0 ? (
+                            users.map(user => renderUserCard(user, status, status === 'gone'))
                         ) : (
-                            <div className="text-gray-400 italic pl-2">Nobody gone...</div>
+                            <div className={cn('italic pl-2', emptyStateClasses[status])}>
+                                {status === 'awake' && 'Niemand ist online...'}
+                                {status === 'idle' && 'Niemand ist abwesend...'}
+                                {status === 'gone' && 'Niemand ist offline...'}
+                            </div>
                         )}
                     </div>
                 )}
-            </div>
-        </div>
-    )
+            </section>
+        )
+
+        const sections = [
+            renderSection('awake', <CirclePlus className="w-5 h-5" strokeWidth={3} />, 'Online', awakeUsers, collapsedSections.awake, () => toggleSection('awake')),
+            renderSection('idle', <CircleEllipsis className="w-5 h-5" strokeWidth={3} />, 'Abwesend', idleUsers, collapsedSections.idle, () => toggleSection('idle')),
+            renderSection('gone', <CircleSlash className="w-5 h-5" strokeWidth={3} />, 'Offline', goneUsers, collapsedSections.gone, () => toggleSection('gone'))
+        ]
+
+        if (isModern) {
+            const modernClass = cn(
+                'space-y-6 text-xs',
+                isDark ? 'text-slate-300' : 'text-emerald-900/80',
+                isMobile ? 'px-3 py-3' : 'px-3 py-4 pr-4'
+            )
+
+            if (isMobile) {
+                return <div className={modernClass}>{sections}</div>
+            }
+
+            return (
+                <ScrollArea className="flex-1 h-full">
+                    <div className={modernClass}>{sections}</div>
+                </ScrollArea>
+            )
+        }
+
+        const legacyWrapper = isDark
+            ? `${isMobile ? '' : 'flex-1 overflow-y-auto'} p-3 space-y-4 text-xs text-[#cbd5f5]`
+            : `${isMobile ? '' : 'flex-1 overflow-y-auto'} p-3 space-y-4 text-xs`
+
+        return <div className={legacyWrapper}>{sections}</div>
+    }
 
     const totalUsers = awakeUsers.length + idleUsers.length + goneUsers.length
+
+    const LayoutShell = (isModern ? Card : 'div') as React.ElementType
+    const HeaderWrapper = (isModern ? CardHeader : 'div') as React.ElementType
 
     return (
         <div
             ref={containerRef}
-            className="relative min-h-[100dvh] bg-gradient-to-br from-[#9ecdfb] via-[#c2dcff] to-[#f1f6ff] overflow-x-hidden md:overflow-hidden"
+            data-chat-layout={chatLayout}
+            className={`relative min-h-[100dvh] overflow-x-hidden md:overflow-hidden ${pageBackgroundClass} ${isModern ? 'chat-layout-modern' : 'chat-layout-classic'}`}
             style={{ fontFamily: 'Tahoma, Verdana, sans-serif' }}
         >
             {/* Background Effects */}
             <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                <div className="absolute -top-24 -left-24 hidden h-[320px] w-[320px] bg-[radial-gradient(circle,#ffffff75,transparent_70%)] blur-2xl sm:block" />
-                <div className="absolute top-24 right-10 hidden h-[280px] w-[280px] bg-[radial-gradient(circle,#7fa6ff4d,transparent_70%)] blur-2xl md:block" />
-                <div className="absolute bottom-[-160px] left-1/3 hidden h-[360px] w-[360px] bg-[radial-gradient(circle,#c7d9ff80,transparent_70%)] blur-3xl md:block" />
+                <div className={`absolute -top-24 -left-24 hidden h-[320px] w-[320px] blur-2xl sm:block ${backgroundGlowTopLeft}`} />
+                <div className={`absolute top-24 right-10 hidden h-[280px] w-[280px] blur-2xl md:block ${backgroundGlowTopRight}`} />
+                <div className={`absolute bottom-[-160px] left-1/3 hidden h-[360px] w-[360px] blur-3xl md:block ${backgroundGlowBottom}`} />
             </div>
 
             {/* Main Content Container */}
             <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-6xl flex-col px-3 py-4 sm:px-4 md:px-6 md:py-8">
                 <div className="flex-1 md:flex md:items-center md:justify-center">
-                    <div className="relative w-full rounded-[20px] border border-[#7fa6f7] bg-white/95 backdrop-blur-sm shadow-[0_20px_45px_rgba(40,94,173,0.28)] md:overflow-hidden">
-                        <div className="relative flex min-h-[70vh] flex-col bg-[#f9fbff]/95 md:min-h-0">
+                    <LayoutShell className={cn('relative w-full md:overflow-hidden', !isModern && 'rounded-[20px]', cardShellClass)}>
+                        <div className={cn('relative flex min-h-[70vh] flex-col md:min-h-0', innerPanelBackground)}>
                             {/* Header */}
-                            <div className="flex items-center gap-4 bg-gradient-to-r from-[#0a4bdd] via-[#2a63f1] to-[#0a4bdd] px-4 py-3 text-white md:px-5">
+                            <HeaderWrapper className={cn('flex items-center gap-4 px-4 py-3 md:px-5', headerGradientClass, isModern ? 'border-none text-white/90' : 'text-white')}>
                                 <div className="flex items-center gap-3">
                                     <div className="w-9 h-9 rounded-full border border-white/40 bg-white/20 backdrop-blur-sm flex items-center justify-center text-lg">
                                         💬
                                     </div>
                                     <div className="leading-tight">
-                                        <p className="text-xs uppercase tracking-[0.3em] text-[#cfe0ff]">Retro Room</p>
+                                        <p className={`text-xs uppercase tracking-[0.3em] ${isDark ? 'text-[#bfdbfe]' : 'text-[#cfe0ff]'}`}>Retro Room</p>
                                         <h1 className="text-lg font-semibold" style={{ fontFamily: 'Trebuchet MS, Tahoma, sans-serif' }}>
                                             Alles Bene Messenger
                                         </h1>
                                     </div>
                                 </div>
-                                <div className="ml-auto hidden items-center gap-3 text-xs text-[#d7e6ff] md:flex">
-                                    <span className="inline-flex items-center gap-1">
-                                        <CircleDot className="w-3 h-3" strokeWidth={3} style={{ color: '#4CAF50' }} />
-                                        {awakeUsers.length} awake
-                                    </span>
-                                    <span className="h-4 w-px bg-white/40" />
-                                    <span className="inline-flex items-center gap-1">
-                                        <CircleDot className="w-3 h-3" strokeWidth={3} style={{ color: '#FF9800' }} />
-                                        {idleUsers.length} idle
-                                    </span>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowMobileUsers((val) => !val)}
-                                    className="ml-auto inline-flex items-center gap-1 rounded-full bg-white/20 px-3 py-1.5 text-[11px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] transition md:hidden"
-                                >
-                                    <Users className="h-4 w-4" strokeWidth={2.5} />
-                                    <span>{totalUsers} Nutzer</span>
-                                    {showMobileUsers ? (
-                                        <ChevronsUp className="h-4 w-4" strokeWidth={2.5} />
+                                <div className="ml-auto flex items-center gap-2">
+                                    <div className={`hidden items-center gap-3 text-xs ${headerMutedTextClass} md:flex`}>
+                                        <span className="inline-flex items-center gap-1">
+                                            <CircleDot className="w-3 h-3" strokeWidth={3} style={{ color: headerStatusColors.awake }} />
+                                            {awakeUsers.length} online
+                                        </span>
+                                        {isModern ? (
+                                            <Separator orientation="vertical" className="hidden h-4 bg-white/40 md:block" decorative />
+                                        ) : (
+                                            <span className="h-4 w-px bg-white/40" />
+                                        )}
+                                        <span className="inline-flex items-center gap-1">
+                                            <CircleDot className="w-3 h-3" strokeWidth={3} style={{ color: headerStatusColors.idle }} />
+                                            {idleUsers.length} abwesend
+                                        </span>
+                                    </div>
+                                    <ThemeSwitcher size="sm" className="hidden md:inline-flex" />
+                                    {isModern ? (
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setShowMobileUsers((val) => !val)}
+                                            className={cn('md:hidden rounded-full px-3 py-1.5 text-[11px] font-semibold text-white/90', mobileToggleButtonClass)}
+                                        >
+                                            <Users className="h-4 w-4" strokeWidth={2.5} />
+                                            <span>{totalUsers} Nutzer</span>
+                                            {showMobileUsers ? (
+                                                <ChevronsUp className="h-4 w-4" strokeWidth={2.5} />
+                                            ) : (
+                                                <ChevronsDown className="h-4 w-4" strokeWidth={2.5} />
+                                            )}
+                                        </Button>
                                     ) : (
-                                        <ChevronsDown className="h-4 w-4" strokeWidth={2.5} />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowMobileUsers((val) => !val)}
+                                            className={`${mobileToggleButtonClass} md:hidden`}
+                                        >
+                                            <Users className="h-4 w-4" strokeWidth={2.5} />
+                                            <span>{totalUsers} Nutzer</span>
+                                            {showMobileUsers ? (
+                                                <ChevronsUp className="h-4 w-4" strokeWidth={2.5} />
+                                            ) : (
+                                                <ChevronsDown className="h-4 w-4" strokeWidth={2.5} />
+                                            )}
+                                        </button>
                                     )}
-                                </button>
-                            </div>
+                                    <ThemeSwitcher size="sm" className="md:hidden" />
+                                </div>
+                            </HeaderWrapper>
 
                             <div className="flex flex-1 flex-col gap-4 px-4 pb-5 pt-4 md:grid md:grid-cols-[minmax(0,1fr)_280px] md:gap-6 md:px-6 md:pb-6 md:pt-5">
                                 <div className="relative flex min-h-[50vh] flex-col gap-3 md:min-h-0 md:gap-4">
-                                    <div className="flex-1 overflow-hidden rounded-[16px] border border-[#7a96df] bg-white shadow-[0_12px_30px_rgba(58,92,173,0.15)]">
+                                    <div className={`flex-1 overflow-hidden rounded-[16px] ${chatBoardContainerClass}`}>
                                         <ChatBoard />
                                     </div>
-                                    <div className="sticky bottom-2 z-20 overflow-visible rounded-[14px] border border-[#7a96df] bg-white/95 shadow-[0_10px_20px_rgba(58,92,173,0.12)] backdrop-blur md:static md:backdrop-blur-none">
+                                    <div className={`sticky bottom-2 z-20 overflow-visible rounded-[14px] ${chatBarContainerClass} md:static md:backdrop-blur-none`}>
                                         <ChatBar />
                                     </div>
 
                                     {/* Mobile User List */}
                                     {showMobileUsers && (
                                         <div className="md:hidden">
-                                            <div className="rounded-[16px] border border-[#7a96df] bg-white/95 shadow-[0_12px_28px_rgba(58,92,173,0.18)]">
-                                                <div className="flex items-center gap-2 border-b border-[#c7d9ff] bg-gradient-to-r from-[#eaf1ff] to-[#dfe9ff] px-4 py-3 text-sm font-semibold text-[#0a4bdd]">
+                                            <div className={`rounded-[16px] ${mobileListContainerClass}`}>
+                                                <div className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold ${sidebarHeaderClass}`}>
                                                     <Users className="h-5 w-5" strokeWidth={3} />
-                                                    User Status
+                                                    Online-Status
                                                 </div>
                                                 <UserStatusList isMobile={true} />
                                             </div>
 
                                             <div className="mt-3 grid grid-cols-1 gap-2">
-                                                <button
-                                                    onClick={handleInvite}
-                                                    className="flex w-full items-center justify-center gap-1.5 rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-2 text-[11px] font-medium text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[0.5px]"
-                                                >
-                                                    <Share2 className="h-3.5 w-3.5" strokeWidth={2} />
-                                                    Invite a Friend
-                                                </button>
-                                                <button
-                                                    onClick={handleOpenSettings}
-                                                    className="flex w-full items-center justify-center gap-1.5 rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-2 text-[11px] font-medium text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[0.5px]"
-                                                >
-                                                    <CircleUserRound className="h-3.5 w-3.5" strokeWidth={2} />
-                                                    Settings
-                                                </button>
-                                                <button
-                                                    onClick={() => setShowLogoutDialog(true)}
-                                                    disabled={isLoggingOut}
-                                                    className="flex w-full items-center justify-center gap-1.5 rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-2 text-[11px] font-medium text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[0.5px] disabled:cursor-not-allowed disabled:opacity-60"
-                                                >
-                                                    <CirclePower className="h-3.5 w-3.5" strokeWidth={2} />
-                                                    {isLoggingOut ? 'Wird abgemeldet...' : 'Logout'}
-                                                </button>
+                                                {isModern ? (
+                                                    <Button
+                                                        type="button"
+                                                        variant="secondary"
+                                                        size="sm"
+                                                        onClick={handleInvite}
+                                                        className="w-full justify-center"
+                                                    >
+                                                        <Share2 className="h-3.5 w-3.5" strokeWidth={2} />
+                                                        Invite a Friend
+                                                    </Button>
+                                                ) : (
+                                                    <button
+                                                        onClick={handleInvite}
+                                                        className={actionButtonClassMobile}
+                                                    >
+                                                        <Share2 className="h-3.5 w-3.5" strokeWidth={2} />
+                                                        Invite a Friend
+                                                    </button>
+                                                )}
+                                                {isModern ? (
+                                                    <Button
+                                                        type="button"
+                                                        variant="secondary"
+                                                        size="sm"
+                                                        onClick={handleOpenSettings}
+                                                        className="w-full justify-center"
+                                                    >
+                                                        <CircleUserRound className="h-3.5 w-3.5" strokeWidth={2} />
+                                                        Settings
+                                                    </Button>
+                                                ) : (
+                                                    <button
+                                                        onClick={handleOpenSettings}
+                                                        className={actionButtonClassMobile}
+                                                    >
+                                                        <CircleUserRound className="h-3.5 w-3.5" strokeWidth={2} />
+                                                        Settings
+                                                    </button>
+                                                )}
+                                                {isModern ? (
+                                                    <Button
+                                                        type="button"
+                                                        variant="secondary"
+                                                        size="sm"
+                                                        onClick={() => setShowLogoutDialog(true)}
+                                                        disabled={isLoggingOut}
+                                                        className="w-full justify-center"
+                                                    >
+                                                        <CirclePower className="h-3.5 w-3.5" strokeWidth={2} />
+                                                        {isLoggingOut ? 'Wird abgemeldet...' : 'Logout'}
+                                                    </Button>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => setShowLogoutDialog(true)}
+                                                        disabled={isLoggingOut}
+                                                        className={actionButtonClassMobile}
+                                                    >
+                                                        <CirclePower className="h-3.5 w-3.5" strokeWidth={2} />
+                                                        {isLoggingOut ? 'Wird abgemeldet...' : 'Logout'}
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     )}
@@ -788,149 +1292,293 @@ export function ChatPage() {
 
                                 {/* Desktop Sidebar - mit fester Höhe für konsistente Darstellung */}
                                 <aside className="hidden md:block">
-                                    <div className="rounded-[16px] border border-[#7a96df] bg-white/95 shadow-[0_12px_28px_rgba(58,92,173,0.18)] overflow-hidden flex flex-col h-[580px]">
-                                        <div className="bg-gradient-to-r from-[#eaf1ff] to-[#dfe9ff] px-4 py-3 border-b border-[#c7d9ff] flex-shrink-0">
-                                            <div className="text-sm font-semibold text-[#0a4bdd] flex items-center gap-2">
+                                    <div className={`rounded-[16px] overflow-hidden flex flex-col h-[580px] ${sidebarContainerClass}`}>
+                                        <div className={`${sidebarHeaderClass} px-4 py-3 flex-shrink-0`}> 
+                                            <div className="text-sm font-semibold flex items-center gap-2">
                                                 <Users className="w-5 h-5" strokeWidth={3} />
-                                                User Status
+                                                Online-Status
                                             </div>
                                         </div>
 
                                         <UserStatusList />
 
-                                        <div className="border-t border-[#c7d9ff] bg-[#f2f6ff] p-3 space-y-2 text-xs flex-shrink-0">
-                                            <button
-                                                onClick={handleInvite}
-                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-1.5 text-[11px] font-medium text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[0.5px] flex items-center justify-center gap-1.5"
-                                            >
-                                                <Share2 className="w-3.5 h-3.5" strokeWidth={2} />
-                                                Invite a Friend
-                                            </button>
-                                            <button
-                                                onClick={handleOpenSettings}
-                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-1.5 text-[11px] font-medium text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[0.5px] flex items-center justify-center gap-1.5"
-                                            >
-                                                <CircleUserRound className="w-3.5 h-3.5" strokeWidth={2} />
-                                                Settings
-                                            </button>
-                                            <button
-                                                onClick={() => setShowLogoutDialog(true)}
-                                                disabled={isLoggingOut}
-                                                className="w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-1.5 text-[11px] font-medium text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[0.5px] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
-                                            >
-                                                <CirclePower className="w-3.5 h-3.5" strokeWidth={2} />
-                                                {isLoggingOut ? 'Wird abgemeldet...' : 'Logout'}
-                                            </button>
+                                        <div className={`${sidebarFooterClass} p-3 space-y-2 text-xs flex-shrink-0`}>
+                                            {isModern ? (
+                                                <Button
+                                                    type="button"
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    onClick={handleInvite}
+                                                    className="w-full justify-center"
+                                                >
+                                                    <Share2 className="w-3.5 h-3.5" strokeWidth={2} />
+                                                    Invite a Friend
+                                                </Button>
+                                            ) : (
+                                                <button
+                                                    onClick={handleInvite}
+                                                    className={actionButtonClassDesktop}
+                                                >
+                                                    <Share2 className="w-3.5 h-3.5" strokeWidth={2} />
+                                                    Invite a Friend
+                                                </button>
+                                            )}
+                                            {isModern ? (
+                                                <Button
+                                                    type="button"
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    onClick={handleOpenSettings}
+                                                    className="w-full justify-center"
+                                                >
+                                                    <CircleUserRound className="w-3.5 h-3.5" strokeWidth={2} />
+                                                    Settings
+                                                </Button>
+                                            ) : (
+                                                <button
+                                                    onClick={handleOpenSettings}
+                                                    className={actionButtonClassDesktop}
+                                                >
+                                                    <CircleUserRound className="w-3.5 h-3.5" strokeWidth={2} />
+                                                    Settings
+                                                </button>
+                                            )}
+                                            {isModern ? (
+                                                <Button
+                                                    type="button"
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    onClick={() => setShowLogoutDialog(true)}
+                                                    disabled={isLoggingOut}
+                                                    className="w-full justify-center"
+                                                >
+                                                    <CirclePower className="w-3.5 h-3.5" strokeWidth={2} />
+                                                    {isLoggingOut ? 'Wird abgemeldet...' : 'Logout'}
+                                                </Button>
+                                            ) : (
+                                                <button
+                                                    onClick={() => setShowLogoutDialog(true)}
+                                                    disabled={isLoggingOut}
+                                                    className={actionButtonClassDesktop}
+                                                >
+                                                    <CirclePower className="w-3.5 h-3.5" strokeWidth={2} />
+                                                    {isLoggingOut ? 'Wird abgemeldet...' : 'Logout'}
+                                                </button>
+                                            )}
                                         </div>
 
                                         {/* Debug Info */}
                                         {import.meta.env.DEV && (
-                                            <div className="border-t border-[#c7d9ff] bg-white/90 px-3 py-2 text-[10px] text-[#5c6fb9] flex-shrink-0">
-                                                <div>User: {currentUser?.email || 'Anonym'}</div>
-                                                <div>UID: {currentUser?.uid?.slice(0, 15)}...</div>
-                                                <div>DocID: {window.__userDocId?.slice(0, 15)}...</div>
-                                                <div>Total: {awakeUsers.length + idleUsers.length + goneUsers.length} Users</div>
+                                            <div className={`${debugPanelClass} px-3 py-2 text-[10px] flex-shrink-0`}>
+                                                <div className={`mb-1 font-semibold ${debugValueAccentClass}`}>Debug (nur lokal)</div>
+                                                <div className="grid grid-cols-[auto,1fr] gap-x-2 gap-y-1">
+                                                    <span className={debugLabelClass}>Nutzer</span>
+                                                    <span className={`font-medium break-all ${debugValueClass}`}>{currentUser?.email || 'Anonym'}</span>
+                                                    <span className={debugLabelClass}>UID</span>
+                                                    <span className={`font-mono ${debugValueClass}`}>{formatDebugId(currentUser?.uid || null)}</span>
+                                                    <span className={debugLabelClass}>DocID</span>
+                                                    <span className={`font-mono ${debugValueClass}`}>{formatDebugId(window.__userDocId || null)}</span>
+                                                    <span className={debugLabelClass}>Gesamt</span>
+                                                    <span className={`font-medium ${debugValueClass}`}>{totalUsers === 1 ? '1 Nutzer' : `${totalUsers} Nutzer`}</span>
+                                                    <span className={debugLabelClass}>Status</span>
+                                                    <span className={`font-mono ${debugValueClass}`}>
+                                                        {awakeUsers.length}/{idleUsers.length}/{goneUsers.length}
+                                                    </span>
+                                                </div>
                                             </div>
                                         )}
                                     </div>
                                 </aside>
                             </div>
                         </div>
-                    </div>
+                    </LayoutShell>
                 </div>
             </div>
 
             {/* Share Modal */}
-            {showShareModal && (
-                <div className="fixed inset-0 bg-[#1a225040]/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="relative w-full max-w-md rounded-2xl border border-[#7fa6f7] bg-white/95 shadow-[0_18px_40px_rgba(40,94,173,0.25)] p-6">
-                        <div className="absolute -top-8 right-8 w-24 h-24 bg-[radial-gradient(circle,#7fa6ff4d,transparent_70%)] blur-xl" />
-                        <h3 className="text-lg font-semibold text-[#0a4bdd]" style={{ fontFamily: 'Trebuchet MS, Tahoma, sans-serif' }}>
-                            Freund einladen
-                        </h3>
-                        <p className="mt-2 text-sm text-[#4b5f9b]">
-                            Teile diesen magischen Link mit deinen MSN-Buddies:
-                        </p>
-                        <input
-                            type="text"
-                            value={window.location.origin}
+            {isModern ? (
+                <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
+                    <DialogContent className={cn('max-w-md gap-5', shareCardClass)}>
+                        <div className={shareGlowClass} />
+                        <DialogHeader className="space-y-2 text-left">
+                            <DialogTitle style={{ fontFamily: 'Trebuchet MS, Tahoma, sans-serif' }} className={shareHeadingClass}>
+                                Freund einladen
+                            </DialogTitle>
+                            <DialogDescription className={shareTextClass}>
+                                Teile diesen magischen Link mit deinen MSN-Buddies:
+                            </DialogDescription>
+                        </DialogHeader>
+                        <Input
+                            value={typeof window !== 'undefined' ? window.location.origin : ''}
                             readOnly
-                            className="mt-4 w-full rounded-md border border-[#7a96df] bg-[#f5f8ff] px-3 py-2 text-sm text-[#0a4bdd] focus:outline-none focus:ring-2 focus:ring-[#b7c8ff]"
                             onClick={(e) => e.currentTarget.select()}
+                            className={cn('mt-1', shareInputClass)}
                         />
-                        <div className="mt-4 grid grid-cols-3 gap-2 text-sm">
-                            <button
-                                onClick={copyLink}
-                                className="rounded-md border border-[#7a96df] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-2 text-[#0a4bdd] font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-transform hover:-translate-y-[2px]"
-                            >
+                        <div className="grid grid-cols-3 gap-2 text-sm">
+                            <Button type="button" variant="secondary" size="sm" onClick={copyLink} className="justify-center">
                                 📋 Kopieren
-                            </button>
-                            <button
-                                onClick={shareWhatsApp}
-                                className="rounded-md border border-[#7a96df] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-2 text-[#0a4bdd] font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-transform hover:-translate-y-[2px]"
-                            >
+                            </Button>
+                            <Button type="button" variant="secondary" size="sm" onClick={shareWhatsApp} className="justify-center">
                                 💬 WhatsApp
-                            </button>
-                            <button
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
                                 onClick={() => setShowShareModal(false)}
-                                className="rounded-md border border-[#7a96df] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-2 text-[#0a4bdd] font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-transform hover:-translate-y-[2px]"
+                                className="justify-center"
                             >
                                 Schließen
-                            </button>
+                            </Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
+            ) : (
+                showShareModal && (
+                    <div className={modalOverlayClass}>
+                        <div className={shareCardClass}>
+                            <div className={shareGlowClass} />
+                            <h3 className={shareHeadingClass} style={{ fontFamily: 'Trebuchet MS, Tahoma, sans-serif' }}>
+                                Freund einladen
+                            </h3>
+                            <p className={shareTextClass}>
+                                Teile diesen magischen Link mit deinen MSN-Buddies:
+                            </p>
+                            <input
+                                type="text"
+                                value={window.location.origin}
+                                readOnly
+                                className={shareInputClass}
+                                onClick={(e) => e.currentTarget.select()}
+                            />
+                            <div className="mt-4 grid grid-cols-3 gap-2 text-sm">
+                                <button
+                                    onClick={copyLink}
+                                    className={shareButtonClass}
+                                >
+                                    📋 Kopieren
+                                </button>
+                                <button
+                                    onClick={shareWhatsApp}
+                                    className={shareButtonClass}
+                                >
+                                    💬 WhatsApp
+                                </button>
+                                <button
+                                    onClick={() => setShowShareModal(false)}
+                                    className={shareButtonClass}
+                                >
+                                    Schließen
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
+                )
             )}
 
             {/* Logout Confirmation Dialog */}
-            {showLogoutDialog && (
-                <div className="fixed inset-0 bg-[#1a225040]/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="relative w-full max-w-md rounded-2xl border border-[#7fa6f7] bg-white/95 shadow-[0_18px_40px_rgba(40,94,173,0.25)] p-6">
-                        <div className="absolute -top-8 right-8 w-24 h-24 bg-[radial-gradient(circle,#7fa6ff4d,transparent_70%)] blur-xl" />
-
-                        {/* Header */}
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 rounded-full border border-[#9eb8ff] bg-gradient-to-b from-[#fff3e0] to-[#ffe6cc] flex items-center justify-center">
-                                <CirclePower className="w-5 h-5 text-[#ff6b00]" strokeWidth={2} />
+            {isModern ? (
+                <Dialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+                    <DialogContent className={cn('max-w-md gap-5', logoutCardClass)}>
+                        <div className={logoutGlowClass} />
+                        <DialogHeader className="space-y-3 text-left">
+                            <div className="flex items-center gap-3">
+                                <div className={logoutIconWrapClass}>
+                                    <CirclePower className="w-5 h-5 text-[#ff6b00]" strokeWidth={2} />
+                                </div>
+                                <div>
+                                    <DialogTitle className={logoutTitleClass} style={{ fontFamily: 'Trebuchet MS, Tahoma, sans-serif' }}>
+                                        Ausloggen bestätigen
+                                    </DialogTitle>
+                                    <DialogDescription className={logoutSubtitleClass}>
+                                        Möchtest du den Chat wirklich verlassen?
+                                    </DialogDescription>
+                                </div>
                             </div>
-                            <div>
-                                <h3 className="text-lg font-semibold text-[#0a4bdd]" style={{ fontFamily: 'Trebuchet MS, Tahoma, sans-serif' }}>
-                                    Ausloggen bestätigen
-                                </h3>
-                                <p className="text-xs text-[#6c83ca]">Möchtest du den Chat wirklich verlassen?</p>
-                            </div>
-                        </div>
-
-                        {/* Content */}
-                        <div className="bg-[#f5f8ff] border border-[#c7d9ff] rounded-lg p-4 mb-4">
-                            <p className="text-sm text-[#4b5f9b]">
+                        </DialogHeader>
+                        <div className={logoutInfoBoxClass}>
+                            <p className={logoutInfoTextClass}>
                                 Du wirst aus dem Chat ausgeloggt und zur Login-Seite weitergeleitet.
                             </p>
-                            <p className="text-xs text-[#6c83ca] mt-2">
-                                Dein Online-Status wird auf "Gone" gesetzt.
+                            <p className={logoutInfoSubTextClass}>
+                                Dein Online-Status wird auf &quot;Gone&quot; gesetzt.
                             </p>
                         </div>
-
-                        {/* Buttons */}
                         <div className="flex gap-2">
-                            <button
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
                                 onClick={() => setShowLogoutDialog(false)}
-                                className="flex-1 rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-2 text-sm font-medium text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-transform hover:-translate-y-[1px]"
+                                className="flex-1 justify-center"
                             >
                                 Abbrechen
-                            </button>
-                            <button
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
                                 onClick={() => {
                                     setShowLogoutDialog(false)
                                     handleLogout()
                                 }}
-                                className="flex-1 rounded-md border border-[#dc2626] bg-gradient-to-b from-[#fef2f2] to-[#fee2e2] px-3 py-2 text-sm font-semibold text-[#dc2626] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-transform hover:-translate-y-[1px]"
+                                className="flex-1 justify-center"
                             >
                                 Ausloggen
-                            </button>
+                            </Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
+            ) : (
+                showLogoutDialog && (
+                    <div className={modalOverlayClass}>
+                        <div className={logoutCardClass}>
+                            <div className={logoutGlowClass} />
+
+                            {/* Header */}
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className={logoutIconWrapClass}>
+                                    <CirclePower className="w-5 h-5 text-[#ff6b00]" strokeWidth={2} />
+                                </div>
+                                <div>
+                                    <h3 className={logoutTitleClass} style={{ fontFamily: 'Trebuchet MS, Tahoma, sans-serif' }}>
+                                        Ausloggen bestätigen
+                                    </h3>
+                                    <p className={logoutSubtitleClass}>Möchtest du den Chat wirklich verlassen?</p>
+                                </div>
+                            </div>
+
+                            {/* Content */}
+                            <div className={logoutInfoBoxClass}>
+                                <p className={logoutInfoTextClass}>
+                                    Du wirst aus dem Chat ausgeloggt und zur Login-Seite weitergeleitet.
+                                </p>
+                                <p className={logoutInfoSubTextClass}>
+                                    Dein Online-Status wird auf &quot;Gone&quot; gesetzt.
+                                </p>
+                            </div>
+
+                            {/* Buttons */}
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setShowLogoutDialog(false)}
+                                    className={logoutCancelButtonClass}
+                                >
+                                    Abbrechen
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setShowLogoutDialog(false)
+                                        handleLogout()
+                                    }}
+                                    className={logoutConfirmButtonClass}
+                                >
+                                    Ausloggen
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
+                )
             )}
 
             {/* Settings Modal */}
@@ -938,6 +1586,8 @@ export function ChatPage() {
                 isOpen={showSettingsModal}
                 onClose={() => setShowSettingsModal(false)}
                 currentDisplayName={currentDisplayName}
+                chatLayout={chatLayout}
+                onChatLayoutChange={(layout) => setChatLayout(layout)}
             />
         </div>
     )

@@ -122,4 +122,8 @@ export const EMOJI_INPUT_STYLES = `
         display: block;
         position: absolute;
     }
+
+    body.theme-dark [contenteditable][data-placeholder]:empty:before {
+        color: #5d74b6;
+    }
 `

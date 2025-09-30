@@ -17,6 +17,54 @@ body {
     font-size: 13px;
 }
 
+body.theme-dark {
+    background-color: #0b1120;
+    color: #e2e8f0;
+    scrollbar-color: #1d4ed8 #0b1225;
+}
+
+body.theme-light {
+    background-color: #f1f6ff;
+    color: var(--color-msn-text);
+    scrollbar-color: #9eb8ff #f1f6ff;
+}
+
+body.theme-light ::-webkit-scrollbar,
+body.theme-dark ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+body.theme-light ::-webkit-scrollbar-track {
+    background: #eff4ff;
+    border-radius: 9999px;
+}
+
+body.theme-dark ::-webkit-scrollbar-track {
+    background: #0b1225;
+    border-radius: 9999px;
+}
+
+body.theme-light ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #c7d9ff 0%, #9eb8ff 100%);
+    border-radius: 9999px;
+    border: 2px solid #eff4ff;
+}
+
+body.theme-dark ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #1d4ed8 0%, #1e3a8a 100%);
+    border-radius: 9999px;
+    border: 2px solid #0b1225;
+}
+
+body.theme-light ::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #9eb8ff 0%, #7ea0f5 100%);
+}
+
+body.theme-dark ::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+}
+
 /* MSN Window Styles */
 .msn-window {
     background: linear-gradient(180deg, #D8E8F7 0%, #F5F2F9 50%, #D8E8F7 100%);
