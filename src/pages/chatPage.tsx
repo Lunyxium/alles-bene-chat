@@ -743,7 +743,7 @@ export function ChatPage() {
                                     <div className="flex-1 overflow-hidden rounded-[16px] border border-[#7a96df] bg-white shadow-[0_12px_30px_rgba(58,92,173,0.15)]">
                                         <ChatBoard />
                                     </div>
-                                    <div className="sticky bottom-2 z-20 overflow-hidden rounded-[14px] border border-[#7a96df] bg-white/95 shadow-[0_10px_20px_rgba(58,92,173,0.12)] backdrop-blur md:static md:backdrop-blur-none">
+                                    <div className="sticky bottom-2 z-20 overflow-visible rounded-[14px] border border-[#7a96df] bg-white/95 shadow-[0_10px_20px_rgba(58,92,173,0.12)] backdrop-blur md:static md:backdrop-blur-none">
                                         <ChatBar />
                                     </div>
 
