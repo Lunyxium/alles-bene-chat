@@ -741,9 +741,7 @@ export function ChatPage() {
                                             {idleUsers.length} abwesend
                                         </span>
                                     </div>
-                                    <div className="hidden md:flex">
-                                        <ThemeSwitcher size="sm" />
-                                    </div>
+                                    <ThemeSwitcher size="sm" className="hidden md:inline-flex" />
                                     {isModern ? (
                                         <Button
                                             type="button"
@@ -751,6 +749,9 @@ export function ChatPage() {
                                             size="sm"
                                             onClick={() => setShowMobileUsers((val) => !val)}
                                             className={cn('md:hidden rounded-full px-3 py-1.5 text-[11px] font-semibold text-white/90', mobileToggleButtonClass)}
+                                            aria-expanded={showMobileUsers}
+                                            aria-controls="mobile-user-status-panel"
+                                            aria-label={showMobileUsers ? 'Online-Liste einklappen' : 'Online-Liste ausklappen'}
                                         >
                                             <Users className="h-4 w-4" strokeWidth={2.5} />
                                             <span>{totalUsers} Nutzer</span>
@@ -765,6 +766,9 @@ export function ChatPage() {
                                             type="button"
                                             onClick={() => setShowMobileUsers((val) => !val)}
                                             className={`${mobileToggleButtonClass} md:hidden`}
+                                            aria-expanded={showMobileUsers}
+                                            aria-controls="mobile-user-status-panel"
+                                            aria-label={showMobileUsers ? 'Online-Liste einklappen' : 'Online-Liste ausklappen'}
                                         >
                                             <Users className="h-4 w-4" strokeWidth={2.5} />
                                             <span>{totalUsers} Nutzer</span>
@@ -775,9 +779,7 @@ export function ChatPage() {
                                             )}
                                         </button>
                                     )}
-                                    <div className="flex md:hidden">
-                                        <ThemeSwitcher size="sm" />
-                                    </div>
+                                    <ThemeSwitcher size="sm" className="md:hidden" />
                                 </div>
                             </HeaderWrapper>
 
@@ -793,7 +795,12 @@ export function ChatPage() {
                                     {/* Mobile User List */}
                                     {showMobileUsers && (
                                         <div className="md:hidden">
-                                            <div className={`rounded-[16px] ${mobileListContainerClass}`}>
+                                            <div
+                                                id="mobile-user-status-panel"
+                                                role="region"
+                                                aria-label="Online-Status Liste"
+                                                className={`rounded-[16px] ${mobileListContainerClass}`}
+                                            >
                                                 <div className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold ${sidebarHeaderClass}`}>
                                                     <Users className="h-5 w-5" strokeWidth={3} />
                                                     Online-Status

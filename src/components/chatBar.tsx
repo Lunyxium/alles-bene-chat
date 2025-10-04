@@ -3,12 +3,10 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { db, auth } from '@/lib/firebase'
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react'
 import { Howl } from 'howler'
 import { SmilePlus, Send, Zap, Type, Film } from 'lucide-react'
-import { EmojiPicker } from './emojiPicker'
 import { FormatHelper } from './formatHelper'
-import { GifPicker } from './gifPicker'
 import { useTheme } from '@/hooks/useTheme'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -39,6 +37,16 @@ import {
 // ==================== SOUND IMPORTS ====================
 import sentSound from '@/sounds/sent.mp3'
 import wakeupSound from '@/sounds/wakeup.mp3'
+
+const EmojiPicker = lazy(async () => {
+    const module = await import('./emojiPicker')
+    return { default: module.EmojiPicker }
+})
+
+const GifPicker = lazy(async () => {
+    const module = await import('./gifPicker')
+    return { default: module.GifPicker }
+})
 
 const sounds = {
     sent: new Howl({ src: [sentSound], volume: 0.3 }),
@@ -427,35 +435,43 @@ export function ChatBar({ chatLayout = 'classic' }: { chatLayout?: 'classic' | '
                     }}
                 />
 
-                <GifPicker
-                    isOpen={showGifs}
-                    onClose={() => setShowGifs(false)}
-                    onGifSelect={(url) => {
-                        insertGif(url)
-                        setShowGifs(false)
-                    }}
-                />
+                {showGifs && (
+                    <Suspense fallback={null}>
+                        <GifPicker
+                            isOpen
+                            onClose={() => setShowGifs(false)}
+                            onGifSelect={(url) => {
+                                insertGif(url)
+                                setShowGifs(false)
+                            }}
+                        />
+                    </Suspense>
+                )}
 
-                <EmojiPicker
-                    isOpen={showEmojis}
-                    onClose={() => setShowEmojis(false)}
-                    onSelect={(emoji) => {
-                        const el = contentEditableRef.current
-                        if (!el) return
-                        if (lastSelectionRef.current && lastSelectionRef.current.text.length > 0) {
-                            restoreSelection(el, lastSelectionRef.current)
-                            const sel = window.getSelection()
-                            if (sel && sel.rangeCount > 0) {
-                                const range = sel.getRangeAt(0)
-                                range.deleteContents()
-                                insertEmoji(el, emoji)
-                            }
-                        } else {
-                            insertEmoji(el, emoji)
-                        }
-                        updateForm()
-                    }}
-                />
+                {showEmojis && (
+                    <Suspense fallback={null}>
+                        <EmojiPicker
+                            isOpen
+                            onClose={() => setShowEmojis(false)}
+                            onSelect={(emoji) => {
+                                const el = contentEditableRef.current
+                                if (!el) return
+                                if (lastSelectionRef.current && lastSelectionRef.current.text.length > 0) {
+                                    restoreSelection(el, lastSelectionRef.current)
+                                    const sel = window.getSelection()
+                                    if (sel && sel.rangeCount > 0) {
+                                        const range = sel.getRangeAt(0)
+                                        range.deleteContents()
+                                        insertEmoji(el, emoji)
+                                    }
+                                } else {
+                                    insertEmoji(el, emoji)
+                                }
+                                updateForm()
+                            }}
+                        />
+                    </Suspense>
+                )}
 
                 <Card className={cardClass}>
                     <CardContent className="p-4">
@@ -640,41 +656,49 @@ export function ChatBar({ chatLayout = 'classic' }: { chatLayout?: 'classic' | '
             />
 
             {/* GIF Picker */}
-            <GifPicker
-                isOpen={showGifs}
-                onClose={() => setShowGifs(false)}
-                onGifSelect={(url) => {
-                    insertGif(url)
-                    setShowGifs(false)
-                }}
-            />
+            {showGifs && (
+                <Suspense fallback={null}>
+                    <GifPicker
+                        isOpen
+                        onClose={() => setShowGifs(false)}
+                        onGifSelect={(url) => {
+                            insertGif(url)
+                            setShowGifs(false)
+                        }}
+                    />
+                </Suspense>
+            )}
 
             {/* Emoji Picker */}
-            <EmojiPicker
-                isOpen={showEmojis}
-                onClose={() => setShowEmojis(false)}
-                onSelect={(emoji) => {
-                    const el = contentEditableRef.current
-                    if (!el) return
+            {showEmojis && (
+                <Suspense fallback={null}>
+                    <EmojiPicker
+                        isOpen
+                        onClose={() => setShowEmojis(false)}
+                        onSelect={(emoji) => {
+                            const el = contentEditableRef.current
+                            if (!el) return
 
-                    // If we have saved selection with text, replace it
-                    if (lastSelectionRef.current && lastSelectionRef.current.text.length > 0) {
-                        restoreSelection(el, lastSelectionRef.current)
-                        const sel = window.getSelection()
-                        if (sel && sel.rangeCount > 0) {
-                            const range = sel.getRangeAt(0)
-                            range.deleteContents()
-                            insertEmoji(el, emoji)
-                        }
-                    } else {
-                        // No selection, just insert at cursor
-                        insertEmoji(el, emoji)
-                    }
+                            // If we have saved selection with text, replace it
+                            if (lastSelectionRef.current && lastSelectionRef.current.text.length > 0) {
+                                restoreSelection(el, lastSelectionRef.current)
+                                const sel = window.getSelection()
+                                if (sel && sel.rangeCount > 0) {
+                                    const range = sel.getRangeAt(0)
+                                    range.deleteContents()
+                                    insertEmoji(el, emoji)
+                                }
+                            } else {
+                                // No selection, just insert at cursor
+                                insertEmoji(el, emoji)
+                            }
 
-                    updateForm()
-                    // DON'T close emoji picker - let it stay open
-                }}
-            />
+                            updateForm()
+                            // DON'T close emoji picker - let it stay open
+                        }}
+                    />
+                </Suspense>
+            )}
 
             {/* Main Input Bar */}
             <div className={shellClass}>
