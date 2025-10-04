@@ -741,7 +741,9 @@ export function ChatPage() {
                                             {idleUsers.length} abwesend
                                         </span>
                                     </div>
-                                    <ThemeSwitcher size="sm" className="hidden md:inline-flex" />
+                                    <div className="hidden md:flex">
+                                        <ThemeSwitcher size="sm" />
+                                    </div>
                                     {isModern ? (
                                         <Button
                                             type="button"
@@ -773,7 +775,9 @@ export function ChatPage() {
                                             )}
                                         </button>
                                     )}
-                                    <ThemeSwitcher size="sm" className="md:hidden" />
+                                    <div className="flex md:hidden">
+                                        <ThemeSwitcher size="sm" />
+                                    </div>
                                 </div>
                             </HeaderWrapper>
 
