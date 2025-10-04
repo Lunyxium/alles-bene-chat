@@ -4,6 +4,10 @@ import { db, auth } from '@/lib/firebase'
 import { ChatBubble } from './chatBubble'
 import { BellRing, BellOff } from 'lucide-react'
 import { useTheme } from '@/hooks/useTheme'
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 interface Message {
     id: string
@@ -14,7 +18,7 @@ interface Message {
     type?: 'message' | 'nudge' | 'system' | 'wakeup'
 }
 
-export function ChatBoard() {
+export function ChatBoard({ chatLayout = 'classic' }: { chatLayout?: 'classic' | 'modern' }) {
     const [messages, setMessages] = useState<Message[]>([])
     const [soundsMuted, setSoundsMuted] = useState(() => {
         return localStorage.getItem('soundsMuted') === 'true'
@@ -23,6 +27,7 @@ export function ChatBoard() {
     const chatContainerRef = useRef<HTMLDivElement>(null)
     const { theme } = useTheme()
     const isDark = theme === 'dark'
+    const isModern = chatLayout === 'modern'
 
     const toggleSounds = () => {
         const newMutedState = !soundsMuted
@@ -118,6 +123,135 @@ export function ChatBoard() {
     const soundToggleClass = isDark
         ? 'flex items-center gap-1 px-2 py-0.5 rounded hover:bg-white/10 transition-colors text-[#bfdbfe]'
         : 'flex items-center gap-1 px-2 py-0.5 rounded hover:bg-white/30 transition-colors'
+
+    if (isModern) {
+        return (
+            <Card
+                data-chat-window
+                className={cn(
+                    'flex h-[60vh] max-h-[70vh] flex-col overflow-hidden border-0 shadow-none backdrop-blur-[40px] md:h-[460px] md:max-h-none transition-all duration-300',
+                    isDark
+                        ? 'bg-slate-950/30'
+                        : 'bg-white/95'
+                )}
+            >
+                {/* Modern Chat Header */}
+                <CardHeader className={cn(
+                    'flex-row items-center justify-between space-y-0 border-b-2 px-6 py-4 backdrop-blur-sm transition-all',
+                    isDark
+                        ? 'border-white/[0.04] bg-slate-900/40'
+                        : 'border-slate-300/90 bg-slate-50/90'
+                )}>
+                    <div className="flex items-center gap-4">
+                        <div className={cn(
+                            'flex h-10 w-10 items-center justify-center rounded-2xl border-2 text-lg shadow-sm transition-transform hover:scale-105',
+                            isDark
+                                ? 'border-blue-400/20 bg-blue-500/10'
+                                : 'border-blue-200 bg-blue-50/50'
+                        )}>
+                            💬
+                        </div>
+                        <CardTitle className={cn(
+                            'text-base font-semibold',
+                            isDark ? 'text-slate-100' : 'text-slate-900'
+                        )}>
+                            Globaler Nostalgie-Channel
+                        </CardTitle>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs">
+                        <Badge variant="outline" className={cn(
+                            'gap-1.5 rounded-xl border-2 px-2.5 py-1 shadow-sm',
+                            isDark
+                                ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-300'
+                                : 'border-emerald-500 bg-emerald-100 text-emerald-800'
+                        )}>
+                            <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+                            Live
+                        </Badge>
+                        <Badge variant="outline" className={cn(
+                            'rounded-xl border-2 px-2.5 py-1 shadow-sm',
+                            isDark
+                                ? 'border-blue-400/20 bg-blue-500/10 text-blue-300'
+                                : 'border-blue-500 bg-blue-100 text-blue-800'
+                        )}>
+                            {messages.filter(m => m.type !== 'system').length} Nachrichten
+                        </Badge>
+                    </div>
+                </CardHeader>
+
+                {/* Modern Messages Area */}
+                <CardContent
+                    ref={chatContainerRef}
+                    className={cn(
+                        'flex-1 space-y-2 overflow-y-auto p-6',
+                        isDark ? 'text-slate-100' : 'text-slate-900'
+                    )}
+                    style={isDark
+                        ? {
+                            backgroundColor: 'rgba(15, 23, 42, 0.3)',
+                            backgroundImage: 'linear-gradient(135deg, rgba(59,130,246,0.05) 25%, transparent 25%, transparent 50%, rgba(59,130,246,0.05) 50%, rgba(59,130,246,0.05) 75%, transparent 75%, transparent)',
+                            backgroundSize: '40px 40px'
+                        }
+                        : {
+                            backgroundColor: 'rgba(248, 250, 252, 0.95)',
+                            backgroundImage: 'linear-gradient(135deg, rgba(148,163,184,0.04) 25%, transparent 25%, transparent 50%, rgba(148,163,184,0.04) 50%, rgba(148,163,184,0.04) 75%, transparent 75%, transparent)',
+                            backgroundSize: '40px 40px'
+                        }
+                    }
+                >
+                    {messages.length === 0 ? (
+                        <div className={cn(
+                            'mt-10 text-center text-sm',
+                            isDark ? 'text-slate-400' : 'text-slate-600'
+                        )}>
+                            <div className="mb-3 text-xl">🔭</div>
+                            <div className="font-semibold">Noch keine Nachrichten in den letzten 72 Stunden.</div>
+                            <div className={cn('mt-1 text-xs', isDark ? 'text-slate-500' : 'text-slate-500')}>
+                                Sei der Erste und sage Hallo! 👋
+                            </div>
+                        </div>
+                    ) : (
+                        messages.map(msg => <ChatBubble key={msg.id} msg={msg} />)
+                    )}
+                    <div ref={messagesEndRef} />
+                </CardContent>
+
+                {/* Modern Footer with Sound Toggle */}
+                <CardFooter className={cn(
+                    'items-center justify-between border-t-2 px-6 py-3 text-xs backdrop-blur-sm transition-all',
+                    isDark
+                        ? 'border-white/[0.04] bg-slate-900/40 text-slate-400'
+                        : 'border-slate-300/90 bg-slate-50/90 text-slate-700'
+                )}>
+                    <span className="truncate pr-2">Tippe eine Nachricht oder sende ein Wake up! ⚡</span>
+                    <Button
+                        onClick={toggleSounds}
+                        variant="ghost"
+                        size="sm"
+                        className={cn(
+                            'h-8 gap-1.5 rounded-xl px-3 text-xs transition-all',
+                            isDark
+                                ? 'hover:bg-white/10 text-slate-300 hover:text-slate-100'
+                                : 'hover:bg-slate-100 text-slate-600 hover:text-slate-900'
+                        )}
+                        title={soundsMuted ? "Sounds aktivieren" : "Sounds stummschalten"}
+                    >
+                        {soundsMuted ? (
+                            <>
+                                <BellOff className="h-3 w-3" strokeWidth={2} />
+                                <span>Stumm</span>
+                            </>
+                        ) : (
+                            <>
+                                <BellRing className="h-3 w-3" strokeWidth={2} />
+                                <span>Laut</span>
+                            </>
+                        )}
+                    </Button>
+                </CardFooter>
+            </Card>
+        )
+    }
 
     return (
         <div

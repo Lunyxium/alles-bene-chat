@@ -13,15 +13,13 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
+import type { ChatLayoutMode, LayoutClassTokens, StatusStyleTokens, OnlineUser, UserStatus, CollapsedSections } from './chatPage.types'
+import { getLayoutClassTokens, getStatusStyleTokens, getHeaderStatusColors } from './chatPage.styles'
+import { UserStatusList } from './chatUserStatusList'
 // Lucide Icons Import
 import {
     Users,
-    CirclePlus,
-    CircleEllipsis,
-    CircleSlash,
     CircleDot,
     CircleUserRound,
     CirclePower,
@@ -36,80 +34,6 @@ declare global {
         __userDocId?: string;
         __activityTimer?: NodeJS.Timeout;
     }
-}
-
-type UserStatus = 'awake' | 'idle' | 'gone'
-
-interface OnlineUser {
-    id: string          // Dokument-ID (lesbar)
-    uid?: string        // Firebase Auth UID (für Vergleiche)
-    displayName: string
-    email: string
-    status: UserStatus  // Neu: 3-Stufen Status
-    isOnline: boolean   // Legacy support
-    lastSeen: any
-    lastActivity: any   // Neu: Letzter Input/Nachricht
-    photoURL?: string
-    provider?: string
-}
-
-type ChatLayoutMode = 'classic' | 'modern'
-
-interface LayoutClassTokens {
-    pageBackgroundClass: string
-    cardShellClass: string
-    innerPanelBackground: string
-    headerGradientClass: string
-    headerMutedTextClass: string
-    chatBoardContainerClass: string
-    chatBarContainerClass: string
-    mobileListContainerClass: string
-    sidebarContainerClass: string
-    sidebarHeaderClass: string
-    sidebarFooterClass: string
-    debugPanelClass: string
-    debugLabelClass: string
-    debugValueClass: string
-    debugValueAccentClass: string
-    mobileToggleButtonClass: string
-    backgroundGlowTopLeft: string
-    backgroundGlowTopRight: string
-    backgroundGlowBottom: string
-    actionButtonClassMobile: string
-    actionButtonClassDesktop: string
-    modalOverlayClass: string
-    shareCardClass: string
-    shareGlowClass: string
-    shareHeadingClass: string
-    shareTextClass: string
-    shareInputClass: string
-    shareButtonClass: string
-    logoutCardClass: string
-    logoutGlowClass: string
-    logoutIconWrapClass: string
-    logoutTitleClass: string
-    logoutSubtitleClass: string
-    logoutInfoBoxClass: string
-    logoutInfoTextClass: string
-    logoutInfoSubTextClass: string
-    logoutCancelButtonClass: string
-    logoutConfirmButtonClass: string
-}
-
-interface StatusCardVariant {
-    self: string
-    other: string
-    hover: string
-    text: string
-    subText: string
-}
-
-type StatusAppearance = Record<'dark' | 'light', StatusCardVariant>
-
-interface StatusStyleTokens {
-    awake: StatusAppearance
-    idle: StatusAppearance
-    gone: StatusAppearance
 }
 
 const CHAT_LAYOUT_STORAGE_KEY = 'chat-layout-theme'
@@ -133,7 +57,7 @@ export function ChatPage() {
         return stored === 'modern' ? 'modern' : 'classic'
     })
     // Collapse states für die Sections
-    const [collapsedSections, setCollapsedSections] = useState({
+    const [collapsedSections, setCollapsedSections] = useState<CollapsedSections>({
         awake: false,
         idle: false,
         gone: true  // Gone standardmäßig zugeklappt
@@ -647,176 +571,10 @@ export function ChatPage() {
         return `${value.slice(0, 6)}…`
     }
 
-    const layoutClasses = useMemo<LayoutClassTokens>(() => {
-        const classicDark: LayoutClassTokens = {
-            pageBackgroundClass: 'bg-gradient-to-br from-[#0b1120] via-[#10172a] to-[#0f172a]',
-            cardShellClass: 'border border-[#1d3a7a] bg-[#0f172a]/95 backdrop-blur-sm shadow-[0_20px_45px_rgba(8,47,73,0.45)] text-[#e2e8f0]',
-            innerPanelBackground: 'bg-[#0f172a]/95',
-            headerGradientClass: 'bg-gradient-to-r from-[#1e3a8a] via-[#1d4ed8] to-[#1e3a8a]',
-            headerMutedTextClass: 'text-[#93c5fd]',
-            chatBoardContainerClass: 'border border-[#1d3a7a] bg-[#0f172a] shadow-[0_12px_30px_rgba(8,47,73,0.25)]',
-            chatBarContainerClass: 'border border-[#1d3a7a] bg-[#101a32]/95 shadow-[0_10px_20px_rgba(8,47,73,0.25)] backdrop-blur',
-            mobileListContainerClass: 'border border-[#1d3a7a] bg-[#101a32]/95 shadow-[0_12px_28px_rgba(8,47,73,0.3)]',
-            sidebarContainerClass: 'border border-[#1d3a7a] bg-[#101a32]/95 shadow-[0_12px_28px_rgba(8,47,73,0.28)]',
-            sidebarHeaderClass: 'bg-gradient-to-r from-[#1e3a8a]/80 via-[#1d4ed8]/70 to-[#1e3a8a]/80 border-b border-[#243b73] text-[#bfdbfe]',
-            sidebarFooterClass: 'border-t border-[#243b73] bg-[#0f1a33]',
-            debugPanelClass: 'border-t border-[#243b73] bg-[#0f172a]/90 text-[#9fb7dd]',
-            debugLabelClass: 'text-[#7d90c5]',
-            debugValueClass: 'text-[#dbeafe]',
-            debugValueAccentClass: 'text-[#93c5fd]',
-            mobileToggleButtonClass: 'inline-flex items-center gap-1 rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] transition',
-            backgroundGlowTopLeft: 'bg-[radial-gradient(circle,#1e3a8a33,transparent_70%)]',
-            backgroundGlowTopRight: 'bg-[radial-gradient(circle,#1d4ed820,transparent_70%)]',
-            backgroundGlowBottom: 'bg-[radial-gradient(circle,#312e8130,transparent_70%)]',
-            actionButtonClassMobile: 'flex w-full items-center justify-center gap-1.5 rounded-md border border-[#1d3a7a] bg-[#14203d] px-3 py-2 text-[11px] font-medium text-[#bfdbfe] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-transform hover:-translate-y-[0.5px] disabled:cursor-not-allowed disabled:opacity-60',
-            actionButtonClassDesktop: 'w-full rounded-md border border-[#1d3a7a] bg-[#14203d] px-3 py-1.5 text-[11px] font-medium text-[#bfdbfe] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-transform hover:-translate-y-[0.5px] disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center gap-1.5',
-            modalOverlayClass: 'fixed inset-0 bg-[#020617]/80 backdrop-blur-sm flex items-center justify-center z-50 p-4',
-            shareCardClass: 'relative w-full max-w-md rounded-2xl border border-[#1d3a7a] bg-[#0f172a]/95 text-[#dbeafe] shadow-[0_18px_40px_rgba(8,47,73,0.55)] p-6',
-            shareGlowClass: 'absolute -top-8 right-8 w-24 h-24 bg-[radial-gradient(circle,#1d4ed820,transparent_70%)] blur-xl',
-            shareHeadingClass: 'text-lg font-semibold text-[#dbeafe]',
-            shareTextClass: 'mt-2 text-sm text-[#9fb7dd]',
-            shareInputClass: 'mt-4 w-full rounded-md border border-[#1d3a7a] bg-[#0b1225] px-3 py-2 text-sm text-[#bfdbfe] focus:outline-none focus:border-[#60a5fa] focus:ring-2 focus:ring-[#1d4ed8]',
-            shareButtonClass: 'rounded-md border border-[#1d3a7a] bg-[#14203d] px-3 py-2 text-[#bfdbfe] font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-transform hover:-translate-y-[2px]',
-            logoutCardClass: 'relative w-full max-w-md rounded-2xl border border-[#1d3a7a] bg-[#0f172a]/95 text-[#dbeafe] shadow-[0_18px_40px_rgba(8,47,73,0.55)] p-6',
-            logoutGlowClass: 'absolute -top-8 right-8 w-24 h-24 bg-[radial-gradient(circle,#1d4ed820,transparent_70%)] blur-xl',
-            logoutIconWrapClass: 'w-10 h-10 rounded-full border border-[#b91c1c] bg-gradient-to-b from-[#3f1d1d] to-[#2c1515] flex items-center justify-center',
-            logoutTitleClass: 'text-lg font-semibold text-[#dbeafe]',
-            logoutSubtitleClass: 'text-xs text-[#93c5fd]',
-            logoutInfoBoxClass: 'bg-[#101a32] border border-[#1d3a7a] rounded-lg p-4 mb-4',
-            logoutInfoTextClass: 'text-sm text-[#bfdbfe]',
-            logoutInfoSubTextClass: 'text-xs text-[#93c5fd] mt-2',
-            logoutCancelButtonClass: 'flex-1 rounded-md border border-[#1d3a7a] bg-[#14203d] px-3 py-2 text-sm font-medium text-[#bfdbfe] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-transform hover:-translate-y-[1px]',
-            logoutConfirmButtonClass: 'flex-1 rounded-md border border-[#b91c1c] bg-gradient-to-b from-[#451a1a] to-[#2d0f0f] px-3 py-2 text-sm font-semibold text-[#fca5a5] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-transform hover:-translate-y-[1px]'
-        }
-
-        const classicLight: LayoutClassTokens = {
-            pageBackgroundClass: 'bg-gradient-to-br from-[#9ecdfb] via-[#c2dcff] to-[#f1f6ff]',
-            cardShellClass: 'border border-[#7fa6f7] bg-white/95 backdrop-blur-sm shadow-[0_20px_45px_rgba(40,94,173,0.28)]',
-            innerPanelBackground: 'bg-[#f9fbff]/95',
-            headerGradientClass: 'bg-gradient-to-r from-[#0a4bdd] via-[#2a63f1] to-[#0a4bdd]',
-            headerMutedTextClass: 'text-[#d7e6ff]',
-            chatBoardContainerClass: 'border border-[#7a96df] bg-white shadow-[0_12px_30px_rgba(58,92,173,0.15)]',
-            chatBarContainerClass: 'border border-[#7a96df] bg-white/95 shadow-[0_10px_20px_rgba(58,92,173,0.12)] backdrop-blur',
-            mobileListContainerClass: 'border border-[#7a96df] bg-white/95 shadow-[0_12px_28px_rgba(58,92,173,0.18)]',
-            sidebarContainerClass: 'border border-[#7a96df] bg-white/95 shadow-[0_12px_28px_rgba(58,92,173,0.18)]',
-            sidebarHeaderClass: 'bg-gradient-to-r from-[#eaf1ff] to-[#dfe9ff] border-b border-[#c7d9ff] text-[#0a4bdd]',
-            sidebarFooterClass: 'border-t border-[#c7d9ff] bg-[#f2f6ff]',
-            debugPanelClass: 'border-t border-[#c7d9ff] bg-white/90 text-[#5c6fb9]',
-            debugLabelClass: 'text-[#6c83ca]',
-            debugValueClass: 'text-[#0a4bdd]',
-            debugValueAccentClass: 'text-[#3f58b1]',
-            mobileToggleButtonClass: 'inline-flex items-center gap-1 rounded-full bg-white/20 px-3 py-1.5 text-[11px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] transition',
-            backgroundGlowTopLeft: 'bg-[radial-gradient(circle,#ffffff75,transparent_70%)]',
-            backgroundGlowTopRight: 'bg-[radial-gradient(circle,#7fa6ff4d,transparent_70%)]',
-            backgroundGlowBottom: 'bg-[radial-gradient(circle,#c7d9ff80,transparent_70%)]',
-            actionButtonClassMobile: 'flex w-full items-center justify-center gap-1.5 rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-2 text-[11px] font-medium text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[0.5px] disabled:cursor-not-allowed disabled:opacity-60',
-            actionButtonClassDesktop: 'w-full rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-1.5 text-[11px] font-medium text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition-transform hover:-translate-y-[0.5px] disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center gap-1.5',
-            modalOverlayClass: 'fixed inset-0 bg-[#1a225040]/60 backdrop-blur-sm flex items-center justify-center z-50 p-4',
-            shareCardClass: 'relative w-full max-w-md rounded-2xl border border-[#7fa6f7] bg-white/95 shadow-[0_18px_40px_rgba(40,94,173,0.25)] p-6',
-            shareGlowClass: 'absolute -top-8 right-8 w-24 h-24 bg-[radial-gradient(circle,#7fa6ff4d,transparent_70%)] blur-xl',
-            shareHeadingClass: 'text-lg font-semibold text-[#0a4bdd]',
-            shareTextClass: 'mt-2 text-sm text-[#4b5f9b]',
-            shareInputClass: 'mt-4 w-full rounded-md border border-[#7a96df] bg-[#f5f8ff] px-3 py-2 text-sm text-[#0a4bdd] focus:outline-none focus:ring-2 focus:ring-[#b7c8ff]',
-            shareButtonClass: 'rounded-md border border-[#7a96df] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-2 text-[#0a4bdd] font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-transform hover:-translate-y-[2px]',
-            logoutCardClass: 'relative w-full max-w-md rounded-2xl border border-[#7fa6f7] bg-white/95 shadow-[0_18px_40px_rgba(40,94,173,0.25)] p-6',
-            logoutGlowClass: 'absolute -top-8 right-8 w-24 h-24 bg-[radial-gradient(circle,#7fa6ff4d,transparent_70%)] blur-xl',
-            logoutIconWrapClass: 'w-10 h-10 rounded-full border border-[#9eb8ff] bg-gradient-to-b from-[#fff3e0] to-[#ffe6cc] flex items-center justify-center',
-            logoutTitleClass: 'text-lg font-semibold text-[#0a4bdd]',
-            logoutSubtitleClass: 'text-xs text-[#6c83ca]',
-            logoutInfoBoxClass: 'bg-[#f5f8ff] border border-[#c7d9ff] rounded-lg p-4 mb-4',
-            logoutInfoTextClass: 'text-sm text-[#4b5f9b]',
-            logoutInfoSubTextClass: 'text-xs text-[#6c83ca] mt-2',
-            logoutCancelButtonClass: 'flex-1 rounded-md border border-[#9eb8ff] bg-gradient-to-b from-white to-[#e6eeff] px-3 py-2 text-sm font-medium text-[#0a4bdd] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-transform hover:-translate-y-[1px]',
-            logoutConfirmButtonClass: 'flex-1 rounded-md border border-[#dc2626] bg-gradient-to-b from-[#fef2f2] to-[#fee2e2] px-3 py-2 text-sm font-semibold text-[#dc2626] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-transform hover:-translate-y-[1px]'
-        }
-
-        const modernDark: LayoutClassTokens = {
-            pageBackgroundClass: 'bg-gradient-to-br from-[#0d0f15] via-[#161925] to-[#1f2430]',
-            cardShellClass: 'border border-slate-800/80 bg-[#1f242f]/95 backdrop-blur-2xl text-slate-100 shadow-[0_24px_60px_rgba(6,10,20,0.55)]',
-            innerPanelBackground: 'bg-[#1a1f2a]/90 backdrop-blur-xl',
-            headerGradientClass: 'bg-gradient-to-r from-[#1e293b] via-[#232c3f] to-[#1e1f29] border-b border-slate-700/70',
-            headerMutedTextClass: 'text-slate-400',
-            chatBoardContainerClass: 'border border-slate-800/60 bg-[#161b24]/90 shadow-[0_20px_48px_rgba(5,8,15,0.55)] backdrop-blur-xl',
-            chatBarContainerClass: 'border border-slate-800/70 bg-[#161c26]/90 shadow-[0_18px_38px_rgba(5,8,15,0.45)] backdrop-blur-2xl ring-1 ring-slate-700/60',
-            mobileListContainerClass: 'border border-slate-800/70 bg-[#1b202c]/90 shadow-[0_20px_40px_rgba(5,8,16,0.5)] backdrop-blur-xl',
-            sidebarContainerClass: 'border border-slate-800/80 bg-[#1b202c]/90 shadow-[0_24px_48px_rgba(5,8,16,0.55)] backdrop-blur-xl ring-1 ring-slate-700/50',
-            sidebarHeaderClass: 'bg-[#1f2530]/90 border-b border-slate-700/60 text-slate-100/80',
-            sidebarFooterClass: 'border-t border-slate-800/70 bg-[#171c25]/90',
-            debugPanelClass: 'border-t border-slate-800/70 bg-[#141923]/90 text-slate-400',
-            debugLabelClass: 'text-slate-500',
-            debugValueClass: 'text-slate-200',
-            debugValueAccentClass: 'text-[#60a5fa]',
-            mobileToggleButtonClass: 'inline-flex items-center gap-1 rounded-full border border-slate-700/70 bg-[#202733]/80 px-3 py-1.5 text-[11px] font-semibold text-slate-200 shadow-[0_8px_18px_rgba(15,19,28,0.45)] transition hover:-translate-y-[1px]',
-            backgroundGlowTopLeft: 'bg-[radial-gradient(circle,#5865f233,transparent_70%)]',
-            backgroundGlowTopRight: 'bg-[radial-gradient(circle,#7dd3fc22,transparent_70%)]',
-            backgroundGlowBottom: 'bg-[radial-gradient(circle,#22c55e25,transparent_70%)]',
-            actionButtonClassMobile: 'flex w-full items-center justify-center gap-1.5 rounded-md border border-slate-700/70 bg-[#202733]/80 px-3 py-2 text-[11px] font-medium text-slate-100 shadow-[0_12px_26px_rgba(15,19,28,0.45)] transition-all hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-60',
-            actionButtonClassDesktop: 'w-full rounded-md border border-slate-700/70 bg-[#202733]/80 px-3 py-1.5 text-[11px] font-medium text-slate-100 shadow-[0_12px_26px_rgba(15,19,28,0.45)] transition-all hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center gap-1.5',
-            modalOverlayClass: 'fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-50 p-4',
-            shareCardClass: 'relative w-full max-w-md rounded-2xl border border-slate-800/80 bg-[#1f242f]/95 text-slate-100 shadow-[0_26px_55px_rgba(6,10,20,0.65)] p-6 backdrop-blur-xl',
-            shareGlowClass: 'absolute -top-8 right-8 w-24 h-24 bg-[radial-gradient(circle,#5865f235,transparent_70%)] blur-2xl',
-            shareHeadingClass: 'text-lg font-semibold text-slate-100',
-            shareTextClass: 'mt-2 text-sm text-slate-400',
-            shareInputClass: 'mt-4 w-full rounded-md border border-slate-700 bg-[#111720]/90 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-[#60a5fa] focus:ring-2 focus:ring-[#60a5fa]/40',
-            shareButtonClass: 'rounded-md border border-slate-700/80 bg-[#202733]/85 px-3 py-2 text-slate-100 font-medium shadow-[0_10px_24px_rgba(15,19,28,0.45)] transition-transform hover:-translate-y-[1px]',
-            logoutCardClass: 'relative w-full max-w-md rounded-2xl border border-red-500/40 bg-[#1f242f]/95 text-slate-100 shadow-[0_28px_58px_rgba(6,10,20,0.6)] p-6 backdrop-blur-xl',
-            logoutGlowClass: 'absolute -top-10 right-8 w-28 h-28 bg-[radial-gradient(circle,#f8717130,transparent_70%)] blur-2xl',
-            logoutIconWrapClass: 'w-10 h-10 rounded-full border border-red-500/40 bg-gradient-to-b from-[#2a0f12] to-[#16080a] flex items-center justify-center',
-            logoutTitleClass: 'text-lg font-semibold text-slate-100',
-            logoutSubtitleClass: 'text-xs text-slate-400',
-            logoutInfoBoxClass: 'bg-[#171c25]/90 border border-slate-700/80 rounded-lg p-4 mb-4',
-            logoutInfoTextClass: 'text-sm text-slate-200',
-            logoutInfoSubTextClass: 'text-xs text-slate-400 mt-2',
-            logoutCancelButtonClass: 'flex-1 rounded-md border border-slate-700/70 bg-[#202733]/85 px-3 py-2 text-sm font-medium text-slate-100 shadow-[0_10px_24px_rgba(15,19,28,0.45)] transition-transform hover:-translate-y-[1px]',
-            logoutConfirmButtonClass: 'flex-1 rounded-md border border-red-500/50 bg-gradient-to-b from-[#2c0f12] to-[#150809] px-3 py-2 text-sm font-semibold text-red-300 shadow-[0_10px_24px_rgba(44,15,18,0.55)] transition-transform hover:-translate-y-[1px]'
-        }
-
-        const modernLight: LayoutClassTokens = {
-            pageBackgroundClass: 'bg-gradient-to-br from-[#f0fdf4] via-[#ffffff] to-[#e0f2f1]',
-            cardShellClass: 'border border-emerald-200/80 bg-white/90 backdrop-blur-2xl shadow-[0_26px_60px_rgba(15,94,78,0.16)]',
-            innerPanelBackground: 'bg-white/85 backdrop-blur-xl',
-            headerGradientClass: 'bg-gradient-to-r from-[#e8fff1] via-[#d8fce5] to-[#e0f2f1] border-b border-emerald-200/70',
-            headerMutedTextClass: 'text-emerald-700/70',
-            chatBoardContainerClass: 'border border-emerald-200/60 bg-white/90 shadow-[0_20px_45px_rgba(15,94,78,0.12)] backdrop-blur-xl',
-            chatBarContainerClass: 'border border-emerald-200/60 bg-white/90 shadow-[0_18px_40px_rgba(15,94,78,0.12)] backdrop-blur-xl ring-1 ring-emerald-200/70',
-            mobileListContainerClass: 'border border-emerald-200/70 bg-white/90 shadow-[0_22px_42px_rgba(15,94,78,0.16)] backdrop-blur-xl',
-            sidebarContainerClass: 'border border-emerald-200/70 bg-white/90 shadow-[0_24px_48px_rgba(15,94,78,0.16)] backdrop-blur-xl ring-1 ring-emerald-200/60',
-            sidebarHeaderClass: 'bg-[#eafaf1] border-b border-emerald-200 text-emerald-800',
-            sidebarFooterClass: 'border-t border-emerald-200 bg-[#f0fff4]',
-            debugPanelClass: 'border-t border-emerald-200 bg-white/85 text-emerald-700/70',
-            debugLabelClass: 'text-emerald-500',
-            debugValueClass: 'text-emerald-800',
-            debugValueAccentClass: 'text-emerald-600',
-            mobileToggleButtonClass: 'inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-white/85 px-3 py-1.5 text-[11px] font-semibold text-emerald-700 shadow-[0_10px_20px_rgba(15,94,78,0.12)] transition hover:-translate-y-[1px]',
-            backgroundGlowTopLeft: 'bg-[radial-gradient(circle,#6ee7b733,transparent_70%)]',
-            backgroundGlowTopRight: 'bg-[radial-gradient(circle,#86efac33,transparent_70%)]',
-            backgroundGlowBottom: 'bg-[radial-gradient(circle,#a5f3fc30,transparent_70%)]',
-            actionButtonClassMobile: 'flex w-full items-center justify-center gap-1.5 rounded-md border border-emerald-200 bg-white/85 px-3 py-2 text-[11px] font-medium text-emerald-700 shadow-[0_12px_26px_rgba(15,94,78,0.14)] transition-all hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-60',
-            actionButtonClassDesktop: 'w-full rounded-md border border-emerald-200 bg-white/85 px-3 py-1.5 text-[11px] font-medium text-emerald-700 shadow-[0_12px_26px_rgba(15,94,78,0.14)] transition-all hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center gap-1.5',
-            modalOverlayClass: 'fixed inset-0 bg-emerald-900/20 backdrop-blur-sm flex items-center justify-center z-50 p-4',
-            shareCardClass: 'relative w-full max-w-md rounded-2xl border border-emerald-200 bg-white/90 text-emerald-900 shadow-[0_28px_60px_rgba(15,94,78,0.18)] p-6 backdrop-blur-xl',
-            shareGlowClass: 'absolute -top-8 right-8 w-24 h-24 bg-[radial-gradient(circle,#6ee7b733,transparent_70%)] blur-2xl',
-            shareHeadingClass: 'text-lg font-semibold text-emerald-800',
-            shareTextClass: 'mt-2 text-sm text-emerald-600',
-            shareInputClass: 'mt-4 w-full rounded-md border border-emerald-200 bg-white/90 px-3 py-2 text-sm text-emerald-900 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200/60',
-            shareButtonClass: 'rounded-md border border-emerald-200 bg-white px-3 py-2 text-emerald-700 font-medium shadow-[0_12px_22px_rgba(15,94,78,0.14)] transition-transform hover:-translate-y-[1px]',
-            logoutCardClass: 'relative w-full max-w-md rounded-2xl border border-red-300/60 bg-white/90 text-emerald-900 shadow-[0_28px_60px_rgba(15,94,78,0.18)] p-6 backdrop-blur-xl',
-            logoutGlowClass: 'absolute -top-10 right-8 w-28 h-28 bg-[radial-gradient(circle,#fca5a530,transparent_70%)] blur-2xl',
-            logoutIconWrapClass: 'w-10 h-10 rounded-full border border-red-300/60 bg-gradient-to-b from-[#fff1f2] to-[#ffe4e6] flex items-center justify-center',
-            logoutTitleClass: 'text-lg font-semibold text-emerald-900',
-            logoutSubtitleClass: 'text-xs text-emerald-600',
-            logoutInfoBoxClass: 'bg-[#f5fffa] border border-emerald-200 rounded-lg p-4 mb-4',
-            logoutInfoTextClass: 'text-sm text-emerald-800',
-            logoutInfoSubTextClass: 'text-xs text-emerald-600 mt-2',
-            logoutCancelButtonClass: 'flex-1 rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm font-medium text-emerald-700 shadow-[0_10px_22px_rgba(15,94,78,0.12)] transition-transform hover:-translate-y-[1px]',
-            logoutConfirmButtonClass: 'flex-1 rounded-md border border-red-300/60 bg-gradient-to-b from-[#fff1f2] to-[#ffe4e6] px-3 py-2 text-sm font-semibold text-red-500 shadow-[0_12px_24px_rgba(248,113,113,0.25)] transition-transform hover:-translate-y-[1px]'
-        }
-
-        if (isModern) {
-            return isDark ? modernDark : modernLight
-        }
-        return isDark ? classicDark : classicLight
-    }, [isModern, isDark])
+    const layoutClasses = useMemo<LayoutClassTokens>(
+        () => getLayoutClassTokens(chatLayout, isDark ? 'dark' : 'light'),
+        [chatLayout, isDark]
+    )
 
     const {
         pageBackgroundClass,
@@ -859,264 +617,72 @@ export function ChatPage() {
         logoutConfirmButtonClass
     } = layoutClasses
 
-    const statusStyles = useMemo<StatusStyleTokens>(() => {
-        const classic: StatusStyleTokens = {
-            awake: {
-                dark: {
-                    self: 'border border-[#1e3a7a] bg-[#12213d]',
-                    other: 'border border-transparent',
-                    hover: 'hover:bg-[#1b2d4b]',
-                    text: 'text-[#dbeafe]',
-                    subText: 'text-[#93c5fd]'
-                },
-                light: {
-                    self: 'border border-[#c7d9ff] bg-[#f0f7ff]',
-                    other: 'border border-transparent',
-                    hover: 'hover:bg-[#e5f3ff]',
-                    text: 'text-[#0f3fae]',
-                    subText: 'text-[#6c83ca]'
-                }
-            },
-            idle: {
-                dark: {
-                    self: 'border border-[#f97316] bg-[#3a2614]',
-                    other: 'border border-transparent',
-                    hover: 'hover:bg-[#4a2f17]',
-                    text: 'text-[#facc15]',
-                    subText: 'text-[#fbd38d]'
-                },
-                light: {
-                    self: 'border border-[#ffd9b3] bg-[#fff8f0]',
-                    other: 'border border-transparent',
-                    hover: 'hover:bg-[#fff3e0]',
-                    text: 'text-[#b87100]',
-                    subText: 'text-[#cc9966]'
-                }
-            },
-            gone: {
-                dark: {
-                    self: 'border border-[#334155] bg-[#111827]',
-                    other: 'border border-transparent',
-                    hover: 'hover:bg-[#1f2937]',
-                    text: 'text-[#cbd5f5]',
-                    subText: 'text-[#94a3b8]'
-                },
-                light: {
-                    self: 'border border-gray-200 bg-gray-50',
-                    other: 'border border-transparent',
-                    hover: 'hover:bg-gray-50',
-                    text: 'text-gray-600',
-                    subText: 'text-gray-400'
-                }
-            }
-        }
+    const statusStyles = useMemo<StatusStyleTokens>(
+        () => getStatusStyleTokens(chatLayout),
+        [chatLayout]
+    )
 
-        const modern: StatusStyleTokens = {
-            awake: {
-                dark: {
-                    self: 'border border-[#38bdf8]/60 bg-[#10254b]/80 shadow-[0_12px_24px_rgba(16,37,75,0.35)]',
-                    other: 'border border-transparent bg-[#0f1f3d]/40',
-                    hover: 'hover:bg-[#132c5e]/70',
-                    text: 'text-[#e0eaff]',
-                    subText: 'text-[#8fb5ff]'
-                },
-                light: {
-                    self: 'border border-[#60a5fa]/60 bg-[#e2f0ff]',
-                    other: 'border border-transparent bg-[#f3f8ff]/70',
-                    hover: 'hover:bg-[#eef4ff]',
-                    text: 'text-[#1e3a8a]',
-                    subText: 'text-[#4c65aa]'
-                }
-            },
-            idle: {
-                dark: {
-                    self: 'border border-[#f97316]/60 bg-[#2d1a0d]/80 shadow-[0_10px_20px_rgba(45,26,13,0.4)]',
-                    other: 'border border-transparent bg-[#1f1a2f]/40',
-                    hover: 'hover:bg-[#3b2413]/70',
-                    text: 'text-[#fbbf24]',
-                    subText: 'text-[#f59e0b]'
-                },
-                light: {
-                    self: 'border border-[#f97316]/50 bg-[#fff1e0]',
-                    other: 'border border-transparent bg-[#fff7ed]/60',
-                    hover: 'hover:bg-[#fff3e0]',
-                    text: 'text-[#b45309]',
-                    subText: 'text-[#d97706]'
-                }
-            },
-            gone: {
-                dark: {
-                    self: 'border border-[#475569]/60 bg-[#111827]/70',
-                    other: 'border border-transparent bg-[#0f172a]/30',
-                    hover: 'hover:bg-[#1f2937]/60',
-                    text: 'text-[#94a3b8]',
-                    subText: 'text-[#64748b]'
-                },
-                light: {
-                    self: 'border border-[#cbd5f5] bg-[#f8fafc]',
-                    other: 'border border-transparent bg-[#f1f5f9]',
-                    hover: 'hover:bg-[#eef2f7]',
-                    text: 'text-[#64748b]',
-                    subText: 'text-[#94a3b8]'
-                }
-            }
-        }
-
-        return isModern ? modern : classic
-    }, [isModern])
-
-    const headerStatusColors = isModern
-        ? { awake: '#38bdf8', idle: '#f59e0b' }
-        : { awake: '#4CAF50', idle: '#FF9800' }
+    const headerStatusColors = useMemo(
+        () => getHeaderStatusColors(chatLayout),
+        [chatLayout]
+    )
 
     // Toggle collapse state
-    const toggleSection = (section: 'awake' | 'idle' | 'gone') => {
+    const toggleSection = (section: UserStatus) => {
         setCollapsedSections(prev => ({
             ...prev,
             [section]: !prev[section]
         }))
     }
 
-    // User Status Component mit Layout-Wechsel je nach Modus
-    const UserStatusList = ({ isMobile = false }: { isMobile?: boolean }) => {
-        const statusColorPalette = isModern
-            ? { awake: '#60a5fa', idle: '#fbbf24', gone: '#94a3b8' }
-            : { awake: '#4CAF50', idle: '#FF9800', gone: '#9E9E9E' }
 
-        const emptyStateClasses = isModern
-            ? {
-                awake: isDark ? 'text-slate-500' : 'text-emerald-500',
-                idle: isDark ? 'text-amber-400/80' : 'text-amber-600',
-                gone: isDark ? 'text-slate-500' : 'text-slate-400'
-            }
-            : {
-                awake: isDark ? 'text-[#647bb0]' : 'text-[#6c83ca]',
-                idle: isDark ? 'text-[#f3c78a]' : 'text-[#cc9966]',
-                gone: isDark ? 'text-[#64748b]' : 'text-gray-400'
-            }
-
-        const renderUserCard = (user: OnlineUser, status: UserStatus, faded?: boolean) => {
-            const variant = statusStyles[status][isDark ? 'dark' : 'light']
-            const isSelfUser = user.uid === currentUser?.uid
-            const cardClass = cn(
-                'flex items-center gap-3 rounded-md px-2 py-2 transition-colors',
-                isSelfUser ? variant.self : variant.other,
-                variant.hover,
-                faded && 'opacity-60'
-            )
-            const iconColor = faded ? '#9E9E9E' : statusColorPalette[status]
-            const initials = user.displayName?.[0]?.toUpperCase() || 'A'
-
-            return (
-                <div key={user.id} className={cardClass}>
-                    {isModern ? (
-                        <div className="relative">
-                            <Avatar className={cn('h-8 w-8 border', isDark ? 'border-slate-800/60' : 'border-emerald-200/70')}>
-                                {user.photoURL ? (
-                                    <AvatarImage src={user.photoURL} alt={user.displayName} />
-                                ) : (
-                                    <AvatarFallback>{initials}</AvatarFallback>
-                                )}
-                            </Avatar>
-                            <span
-                                className={cn(
-                                    'absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2',
-                                    isDark ? 'border-[#1a1f2a]' : 'border-white'
-                                )}
-                                style={{ backgroundColor: iconColor }}
-                            />
-                        </div>
-                    ) : (
-                        <CircleDot className="w-3 h-3" strokeWidth={4} style={{ color: iconColor }} />
-                    )}
-                    <div className="flex-1 min-w-0">
-                        <div className={cn('font-medium truncate', variant.text)}>
-                            {user.displayName}
-                            {isSelfUser && ' (Du)'}
-                        </div>
-                        <div className={cn('text-[10px]', variant.subText)}>
-                            {formatLastSeen(user.lastActivity, user.lastSeen)}
-                        </div>
-                    </div>
-                </div>
-            )
-        }
-
-        const renderSection = (
-            status: UserStatus,
-            icon: React.ReactNode,
-            label: string,
-            users: OnlineUser[],
-            collapsed: boolean,
-            toggle: () => void
-        ) => (
-            <section key={status}>
-                <div
-                    className="flex items-center gap-2 font-semibold mb-2 cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={toggle}
-                    style={{ color: statusColorPalette[status] }}
-                >
-                    {icon}
-                    <span>
-                        {label} ({users.length})
-                    </span>
-                    {collapsed ? (
-                        <ChevronsUp className="w-3 h-3 ml-auto" strokeWidth={2} />
-                    ) : (
-                        <ChevronsDown className="w-3 h-3 ml-auto" strokeWidth={2} />
-                    )}
-                </div>
-                {!collapsed && (
-                    <div className="space-y-1 pl-6">
-                        {users.length > 0 ? (
-                            users.map(user => renderUserCard(user, status, status === 'gone'))
-                        ) : (
-                            <div className={cn('italic pl-2', emptyStateClasses[status])}>
-                                {status === 'awake' && 'Niemand ist online...'}
-                                {status === 'idle' && 'Niemand ist abwesend...'}
-                                {status === 'gone' && 'Niemand ist offline...'}
-                            </div>
-                        )}
-                    </div>
-                )}
-            </section>
-        )
-
-        const sections = [
-            renderSection('awake', <CirclePlus className="w-5 h-5" strokeWidth={3} />, 'Online', awakeUsers, collapsedSections.awake, () => toggleSection('awake')),
-            renderSection('idle', <CircleEllipsis className="w-5 h-5" strokeWidth={3} />, 'Abwesend', idleUsers, collapsedSections.idle, () => toggleSection('idle')),
-            renderSection('gone', <CircleSlash className="w-5 h-5" strokeWidth={3} />, 'Offline', goneUsers, collapsedSections.gone, () => toggleSection('gone'))
-        ]
-
-        if (isModern) {
-            const modernClass = cn(
-                'space-y-6 text-xs',
-                isDark ? 'text-slate-300' : 'text-emerald-900/80',
-                isMobile ? 'px-3 py-3' : 'px-3 py-4 pr-4'
-            )
-
-            if (isMobile) {
-                return <div className={modernClass}>{sections}</div>
-            }
-
-            return (
-                <ScrollArea className="flex-1 h-full">
-                    <div className={modernClass}>{sections}</div>
-                </ScrollArea>
-            )
-        }
-
-        const legacyWrapper = isDark
-            ? `${isMobile ? '' : 'flex-1 overflow-y-auto'} p-3 space-y-4 text-xs text-[#cbd5f5]`
-            : `${isMobile ? '' : 'flex-1 overflow-y-auto'} p-3 space-y-4 text-xs`
-
-        return <div className={legacyWrapper}>{sections}</div>
-    }
 
     const totalUsers = awakeUsers.length + idleUsers.length + goneUsers.length
 
     const LayoutShell = (isModern ? Card : 'div') as React.ElementType
     const HeaderWrapper = (isModern ? CardHeader : 'div') as React.ElementType
+
+    const inviteButtonToneClass = isDark
+        ? '!text-white/90 hover:!text-white hover:!bg-white/10'
+        : '!text-blue-600 hover:!text-blue-700 hover:!bg-blue-50'
+
+    const logoutButtonToneClass = isDark
+        ? '!text-red-300 hover:!text-red-200'
+        : '!text-red-700 hover:!text-red-800'
+
+    const dialogOverlayToneClass = isModern
+        ? (isDark
+            ? 'bg-slate-900/75 backdrop-blur-[24px] !z-[9998]'
+            : 'bg-white/75 backdrop-blur-[24px] !z-[9998]')
+        : undefined
+
+    const dialogOverlayToneStyle = isModern
+        ? (isDark
+            ? { backgroundColor: 'rgba(15, 23, 42, 0.75)', zIndex: 9998 }
+            : { backgroundColor: 'rgba(241, 245, 249, 0.75)', zIndex: 9998 })
+        : undefined
+
+    const dialogContentToneClass = isModern
+        ? (isDark
+            ? 'bg-slate-800/95 text-slate-50 border-slate-600/70 shadow-[0_28px_90px_rgba(0,0,0,0.9)] backdrop-blur-xl ring-1 ring-slate-500/40'
+            : 'bg-white/96 text-slate-900 border-slate-200/80 shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-xl')
+        : undefined
+
+    const dialogContentToneStyle = isModern
+        ? (isDark
+            ? {
+                backgroundColor: 'rgba(30, 41, 59, 0.96)',
+                color: '#f1f5f9',
+                borderColor: 'rgba(100, 116, 139, 0.7)',
+                zIndex: 9999
+            }
+            : {
+                backgroundColor: 'rgba(255, 255, 255, 0.96)',
+                color: '#0f172a',
+                borderColor: 'rgba(148, 163, 184, 0.45)',
+                zIndex: 9999
+            })
+        : undefined
 
     return (
         <div
@@ -1138,14 +704,23 @@ export function ChatPage() {
                     <LayoutShell className={cn('relative w-full md:overflow-hidden', !isModern && 'rounded-[20px]', cardShellClass)}>
                         <div className={cn('relative flex min-h-[70vh] flex-col md:min-h-0', innerPanelBackground)}>
                             {/* Header */}
-                            <HeaderWrapper className={cn('flex items-center gap-4 px-4 py-3 md:px-5', headerGradientClass, isModern ? 'border-none text-white/90' : 'text-white')}>
+                            <HeaderWrapper className={cn('flex items-center gap-4 px-4 py-3 md:px-5', headerGradientClass, isModern ? (isDark ? 'text-white/90' : 'text-slate-900') : 'text-white')}>
                                 <div className="flex items-center gap-3">
-                                    <div className="w-9 h-9 rounded-full border border-white/40 bg-white/20 backdrop-blur-sm flex items-center justify-center text-lg">
+                                    <div className={cn(
+                                        'w-9 h-9 rounded-full backdrop-blur-sm flex items-center justify-center text-lg',
+                                        isModern && isDark ? 'border border-white/40 bg-white/20' : 'border border-white/40 bg-white/20'
+                                    )}>
                                         💬
                                     </div>
                                     <div className="leading-tight">
-                                        <p className={`text-xs uppercase tracking-[0.3em] ${isDark ? 'text-[#bfdbfe]' : 'text-[#cfe0ff]'}`}>Retro Room</p>
-                                        <h1 className="text-lg font-semibold" style={{ fontFamily: 'Trebuchet MS, Tahoma, sans-serif' }}>
+                                        <p className={cn(
+                                            'text-xs uppercase tracking-[0.3em]',
+                                            isModern ? (isDark ? 'text-slate-400' : 'text-slate-600') : (isDark ? 'text-[#bfdbfe]' : 'text-[#cfe0ff]')
+                                        )}>Retro Room</p>
+                                        <h1 className={cn(
+                                            'text-lg font-semibold',
+                                            isModern && !isDark && 'text-slate-900'
+                                        )} style={{ fontFamily: 'Trebuchet MS, Tahoma, sans-serif' }}>
                                             Alles Bene Messenger
                                         </h1>
                                     </div>
@@ -1205,10 +780,10 @@ export function ChatPage() {
                             <div className="flex flex-1 flex-col gap-4 px-4 pb-5 pt-4 md:grid md:grid-cols-[minmax(0,1fr)_280px] md:gap-6 md:px-6 md:pb-6 md:pt-5">
                                 <div className="relative flex min-h-[50vh] flex-col gap-3 md:min-h-0 md:gap-4">
                                     <div className={`flex-1 overflow-hidden rounded-[16px] ${chatBoardContainerClass}`}>
-                                        <ChatBoard />
+                                        <ChatBoard chatLayout={chatLayout} />
                                     </div>
                                     <div className={`sticky bottom-2 z-20 overflow-visible rounded-[14px] ${chatBarContainerClass} md:static md:backdrop-blur-none`}>
-                                        <ChatBar />
+                                        <ChatBar chatLayout={chatLayout} />
                                     </div>
 
                                     {/* Mobile User List */}
@@ -1219,17 +794,28 @@ export function ChatPage() {
                                                     <Users className="h-5 w-5" strokeWidth={3} />
                                                     Online-Status
                                                 </div>
-                                                <UserStatusList isMobile={true} />
+                                                <UserStatusList
+                                                    awakeUsers={awakeUsers}
+                                                    idleUsers={idleUsers}
+                                                    goneUsers={goneUsers}
+                                                    collapsedSections={collapsedSections}
+                                                    onToggleSection={toggleSection}
+                                                    statusStyles={statusStyles}
+                                                    isDark={isDark}
+                                                    isModern={isModern}
+                                                    currentUserId={currentUser?.uid}
+                                                    formatLastSeen={formatLastSeen}
+                                                    isMobile
+                                                />
                                             </div>
 
                                             <div className="mt-3 grid grid-cols-1 gap-2">
                                                 {isModern ? (
                                                     <Button
                                                         type="button"
-                                                        variant="secondary"
-                                                        size="sm"
+                                                        variant="ghost"
                                                         onClick={handleInvite}
-                                                        className="w-full justify-center"
+                                                        className={cn(actionButtonClassMobile, 'text-xs font-medium', inviteButtonToneClass)}
                                                     >
                                                         <Share2 className="h-3.5 w-3.5" strokeWidth={2} />
                                                         Invite a Friend
@@ -1246,10 +832,15 @@ export function ChatPage() {
                                                 {isModern ? (
                                                     <Button
                                                         type="button"
-                                                        variant="secondary"
+                                                        variant="outline"
                                                         size="sm"
                                                         onClick={handleOpenSettings}
-                                                        className="w-full justify-center"
+                                                        className={cn(
+                                                            'w-full justify-center rounded-2xl border-2 transition-all',
+                                                            isDark
+                                                                ? 'border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300'
+                                                                : 'border-blue-300/50 bg-blue-50/80 hover:bg-blue-100 text-blue-700'
+                                                        )}
                                                     >
                                                         <CircleUserRound className="h-3.5 w-3.5" strokeWidth={2} />
                                                         Settings
@@ -1266,11 +857,17 @@ export function ChatPage() {
                                                 {isModern ? (
                                                     <Button
                                                         type="button"
-                                                        variant="secondary"
+                                                        variant="outline"
                                                         size="sm"
                                                         onClick={() => setShowLogoutDialog(true)}
                                                         disabled={isLoggingOut}
-                                                        className="w-full justify-center"
+                                                        className={cn(
+                                                            'w-full justify-center rounded-2xl border-2 transition-all',
+                                                            isDark
+                                                                ? 'border-red-500/30 bg-red-500/10 hover:bg-red-500/20'
+                                                                : 'border-red-300/50 bg-red-50/80 hover:bg-red-100',
+                                                            logoutButtonToneClass
+                                                        )}
                                                     >
                                                         <CirclePower className="h-3.5 w-3.5" strokeWidth={2} />
                                                         {isLoggingOut ? 'Wird abgemeldet...' : 'Logout'}
@@ -1293,23 +890,53 @@ export function ChatPage() {
                                 {/* Desktop Sidebar - mit fester Höhe für konsistente Darstellung */}
                                 <aside className="hidden md:block">
                                     <div className={`rounded-[16px] overflow-hidden flex flex-col h-[580px] ${sidebarContainerClass}`}>
-                                        <div className={`${sidebarHeaderClass} px-4 py-3 flex-shrink-0`}> 
-                                            <div className="text-sm font-semibold flex items-center gap-2">
-                                                <Users className="w-5 h-5" strokeWidth={3} />
-                                                Online-Status
+                                        {isModern ? (
+                                            <CardHeader className={cn('px-5 py-4 flex-shrink-0', sidebarHeaderClass)}>
+                                                <CardTitle className="text-sm font-semibold flex items-center gap-2.5">
+                                                    <Users className="w-5 h-5" strokeWidth={2.5} />
+                                                    Online-Status
+                                                    <Badge 
+                                                        variant="secondary" 
+                                                        className={cn(
+                                                            'ml-auto rounded-full px-2.5 py-0.5 text-[10px] font-semibold',
+                                                            isDark 
+                                                                ? 'bg-slate-900/40 border-white/10 text-slate-300' 
+                                                                : 'bg-white/80 border-slate-200/60 text-slate-700'
+                                                        )}
+                                                    >
+                                                        {totalUsers} {totalUsers === 1 ? 'Nutzer' : 'Nutzer'}
+                                                    </Badge>
+                                                </CardTitle>
+                                            </CardHeader>
+                                        ) : (
+                                            <div className={`${sidebarHeaderClass} px-4 py-3 flex-shrink-0`}> 
+                                                <div className="text-sm font-semibold flex items-center gap-2">
+                                                    <Users className="w-5 h-5" strokeWidth={3} />
+                                                    Online-Status
+                                                </div>
                                             </div>
-                                        </div>
+                                        )}
 
-                                        <UserStatusList />
+                                        <UserStatusList
+                                            awakeUsers={awakeUsers}
+                                            idleUsers={idleUsers}
+                                            goneUsers={goneUsers}
+                                            collapsedSections={collapsedSections}
+                                            onToggleSection={toggleSection}
+                                            statusStyles={statusStyles}
+                                            isDark={isDark}
+                                            isModern={isModern}
+                                            currentUserId={currentUser?.uid}
+                                            formatLastSeen={formatLastSeen}
+                                        />
 
                                         <div className={`${sidebarFooterClass} p-3 space-y-2 text-xs flex-shrink-0`}>
                                             {isModern ? (
                                                 <Button
                                                     type="button"
-                                                    variant="secondary"
-                                                    size="sm"
+                                                    variant="ghost"
                                                     onClick={handleInvite}
-                                                    className="w-full justify-center"
+                                                    className={cn(actionButtonClassDesktop, 'text-xs font-medium', inviteButtonToneClass)}
                                                 >
                                                     <Share2 className="w-3.5 h-3.5" strokeWidth={2} />
                                                     Invite a Friend
@@ -1326,10 +953,15 @@ export function ChatPage() {
                                             {isModern ? (
                                                 <Button
                                                     type="button"
-                                                    variant="secondary"
+                                                    variant="outline"
                                                     size="sm"
                                                     onClick={handleOpenSettings}
-                                                    className="w-full justify-center"
+                                                    className={cn(
+                                                        'w-full justify-center rounded-2xl border-2 transition-all',
+                                                        isDark
+                                                            ? 'border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300'
+                                                            : 'border-blue-300/50 bg-blue-50/80 hover:bg-blue-100 text-blue-700'
+                                                    )}
                                                 >
                                                     <CircleUserRound className="w-3.5 h-3.5" strokeWidth={2} />
                                                     Settings
@@ -1346,11 +978,17 @@ export function ChatPage() {
                                             {isModern ? (
                                                 <Button
                                                     type="button"
-                                                    variant="secondary"
+                                                    variant="outline"
                                                     size="sm"
                                                     onClick={() => setShowLogoutDialog(true)}
                                                     disabled={isLoggingOut}
-                                                    className="w-full justify-center"
+                                                    className={cn(
+                                                        'w-full justify-center rounded-2xl border-2 transition-all',
+                                                        isDark
+                                                            ? 'border-red-500/30 bg-red-500/10 hover:bg-red-500/20'
+                                                            : 'border-red-300/50 bg-red-50/80 hover:bg-red-100',
+                                                        logoutButtonToneClass
+                                                    )}
                                                 >
                                                     <CirclePower className="w-3.5 h-3.5" strokeWidth={2} />
                                                     {isLoggingOut ? 'Wird abgemeldet...' : 'Logout'}
@@ -1398,7 +1036,13 @@ export function ChatPage() {
             {/* Share Modal */}
             {isModern ? (
                 <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
-                    <DialogContent className={cn('max-w-md gap-5', shareCardClass)}>
+                    <DialogContent
+                        overlayClassName={dialogOverlayToneClass}
+                        overlayStyle={dialogOverlayToneStyle}
+                        className={cn('max-w-md gap-5 !z-[9999]', dialogContentToneClass)}
+                        data-theme={isDark ? 'dark' : 'light'}
+                        style={dialogContentToneStyle}
+                    >
                         <div className={shareGlowClass} />
                         <DialogHeader className="space-y-2 text-left">
                             <DialogTitle style={{ fontFamily: 'Trebuchet MS, Tahoma, sans-serif' }} className={shareHeadingClass}>
@@ -1479,7 +1123,13 @@ export function ChatPage() {
             {/* Logout Confirmation Dialog */}
             {isModern ? (
                 <Dialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
-                    <DialogContent className={cn('max-w-md gap-5', logoutCardClass)}>
+                    <DialogContent
+                        overlayClassName={dialogOverlayToneClass}
+                        overlayStyle={dialogOverlayToneStyle}
+                        className={cn('max-w-md gap-5', logoutCardClass, dialogContentToneClass)}
+                        data-theme={isDark ? 'dark' : 'light'}
+                        style={dialogContentToneStyle}
+                    >
                         <div className={logoutGlowClass} />
                         <DialogHeader className="space-y-3 text-left">
                             <div className="flex items-center gap-3">

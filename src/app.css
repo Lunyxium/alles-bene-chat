@@ -29,6 +29,15 @@ body.theme-light {
     scrollbar-color: #9eb8ff #f1f6ff;
 }
 
+/* Modern Layout - Subtile Scrollbars mit Glassmorphismus */
+.chat-layout-modern body.theme-dark {
+    scrollbar-color: rgba(71, 85, 105, 0.5) rgba(15, 23, 42, 0.3);
+}
+
+.chat-layout-modern body.theme-light {
+    scrollbar-color: rgba(203, 213, 225, 0.6) rgba(248, 250, 252, 0.4);
+}
+
 body.theme-light ::-webkit-scrollbar,
 body.theme-dark ::-webkit-scrollbar {
     width: 10px;
@@ -45,6 +54,17 @@ body.theme-dark ::-webkit-scrollbar-track {
     border-radius: 9999px;
 }
 
+/* Modern Layout - Glassmorphismus Scrollbars */
+.chat-layout-modern.theme-dark ::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.3);
+    border-radius: 9999px;
+}
+
+.chat-layout-modern.theme-light ::-webkit-scrollbar-track {
+    background: rgba(248, 250, 252, 0.4);
+    border-radius: 9999px;
+}
+
 body.theme-light ::-webkit-scrollbar-thumb {
     background: linear-gradient(180deg, #c7d9ff 0%, #9eb8ff 100%);
     border-radius: 9999px;
@@ -57,12 +77,36 @@ body.theme-dark ::-webkit-scrollbar-thumb {
     border: 2px solid #0b1225;
 }
 
+/* Modern Layout - Subtile Glassmorphismus Scrollbar Thumbs */
+.chat-layout-modern.theme-dark ::-webkit-scrollbar-thumb {
+    background: rgba(71, 85, 105, 0.5);
+    backdrop-filter: blur(8px);
+    border-radius: 9999px;
+    border: 2px solid rgba(15, 23, 42, 0.3);
+}
+
+.chat-layout-modern.theme-light ::-webkit-scrollbar-thumb {
+    background: rgba(203, 213, 225, 0.6);
+    backdrop-filter: blur(8px);
+    border-radius: 9999px;
+    border: 2px solid rgba(248, 250, 252, 0.4);
+}
+
 body.theme-light ::-webkit-scrollbar-thumb:hover {
     background: linear-gradient(180deg, #9eb8ff 0%, #7ea0f5 100%);
 }
 
 body.theme-dark ::-webkit-scrollbar-thumb:hover {
     background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+}
+
+/* Modern Layout - Hover Effekte */
+.chat-layout-modern.theme-dark ::-webkit-scrollbar-thumb:hover {
+    background: rgba(71, 85, 105, 0.7);
+}
+
+.chat-layout-modern.theme-light ::-webkit-scrollbar-thumb:hover {
+    background: rgba(203, 213, 225, 0.8);
 }
 
 /* MSN Window Styles */
@@ -154,4 +198,87 @@ body.theme-dark ::-webkit-scrollbar-thumb:hover {
     /* Alternative für Firefox */
     transform: scale(1.05);
     transform-origin: left center;
+}
+
+/* Modern Layout - Smooth Transitions */
+.chat-layout-modern * {
+    transition-property: background-color, border-color, box-shadow, transform;
+    transition-duration: 300ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Modern Layout - Backdrop Blur Support */
+@supports (backdrop-filter: blur(40px)) or (-webkit-backdrop-filter: blur(40px)) {
+    .chat-layout-modern [class*="backdrop-blur"] {
+        -webkit-backdrop-filter: blur(40px);
+        backdrop-filter: blur(40px);
+    }
+}
+
+/* Modern Layout - Floating Animation für Cards */
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0px);
+    }
+    50% {
+        transform: translateY(-4px);
+    }
+}
+
+.chat-layout-modern [data-chat-window]:hover {
+    animation: float 3s ease-in-out infinite;
+}
+
+/* Modern Layout - Subtle Shimmer Effect */
+@keyframes shimmer {
+    0% {
+        background-position: -200% center;
+    }
+    100% {
+        background-position: 200% center;
+    }
+}
+
+.chat-layout-modern [class*="rounded-3xl"]::before,
+.chat-layout-modern [class*="rounded-2xl"]::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.1) 50%,
+        transparent
+    );
+    background-size: 200% 100%;
+    opacity: 0;
+    transition: opacity 300ms ease;
+}
+
+.chat-layout-modern [class*="rounded-3xl"]:hover::before,
+.chat-layout-modern [class*="rounded-2xl"]:hover::before {
+    animation: shimmer 2s linear infinite;
+    opacity: 1;
+}
+
+/* Modern Layout - Smooth Scrolling */
+.chat-layout-modern {
+    scroll-behavior: smooth;
+}
+
+/* Modern Layout - Text Rendering */
+.chat-layout-modern {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+/* Modern Layout - Focus States */
+.chat-layout-modern *:focus-visible {
+    outline: 2px solid rgba(99, 102, 241, 0.4);
+    outline-offset: 2px;
+    border-radius: 8px;
 }

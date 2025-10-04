@@ -496,12 +496,12 @@ export function SettingsPanel({
                                         {
                                             id: 'classic' as const,
                                             title: 'Classic',
-                                            description: 'Retro-inspirierte Kartenoptik mit klaren Rahmen und weichen Schatten.'
+                                            description: 'Retro MSN Messenger-Optik mit kräftigen Farben und nostalgischem Charme.'
                                         },
                                         {
                                             id: 'modern' as const,
                                             title: 'Modern',
-                                            description: 'Reduziertes Interface mit Glas-Layer, sanften Verläufen und mehr Raum.'
+                                            description: 'Ultra-modernes Glassmorphismus-Design mit Floating-Effekten und Micro-Animations.'
                                         }
                                     ].map((option) => {
                                         const isActive = chatLayout === option.id

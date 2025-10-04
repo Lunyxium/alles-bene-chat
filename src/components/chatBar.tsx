@@ -10,6 +10,9 @@ import { EmojiPicker } from './emojiPicker'
 import { FormatHelper } from './formatHelper'
 import { GifPicker } from './gifPicker'
 import { useTheme } from '@/hooks/useTheme'
+import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import {
     EMOJI_INPUT_STYLES,
     MAX_GIF_PER_MESSAGE,
@@ -48,7 +51,7 @@ const messageSchema = z.object({
 })
 
 // ==================== MAIN COMPONENT ====================
-export function ChatBar() {
+export function ChatBar({ chatLayout = 'classic' }: { chatLayout?: 'classic' | 'modern' }) {
     // Form handling
     const form = useForm<{ text: string }>({
         resolver: zodResolver(messageSchema),
@@ -62,6 +65,7 @@ export function ChatBar() {
     const [gifLimitHit, setGifLimitHit] = useState(false)
     const { theme } = useTheme()
     const isDark = theme === 'dark'
+    const isModern = chatLayout === 'modern'
 
     // Refs
     const contentEditableRef = useRef<HTMLDivElement>(null)
@@ -389,6 +393,193 @@ export function ChatBar() {
     }, [])
 
     // ==================== RENDER ====================
+    if (isModern) {
+        // Modern Mode mit shadcn Komponenten
+        const cardClass = cn(
+            'border overflow-hidden',
+            isDark 
+                ? 'border-white/[0.04] bg-slate-950/25 shadow-[0_4px_24px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-[32px] rounded-2xl'
+                : 'border-slate-200/80 bg-white/95 shadow-[0_4px_24px_rgba(15,23,42,0.06),inset_0_1px_0_rgba(255,255,255,1)] backdrop-blur-[32px] rounded-2xl',
+            gifLimitHit && (isDark ? 'border-orange-500/30' : 'border-red-300/60')
+        )
+
+        const inputClass = cn(
+            'w-full min-h-[64px] max-h-[180px] overflow-y-auto rounded-xl border px-4 py-3 pr-12 text-sm focus:outline-none md:min-h-[96px] transition-all',
+            isDark
+                ? 'border-white/[0.08] bg-slate-950/30 text-slate-100 placeholder:text-slate-500 focus:border-blue-400/40 focus:ring-4 focus:ring-blue-400/10'
+                : 'border-slate-300/80 bg-white/95 text-slate-900 placeholder:text-slate-400 focus:border-blue-400/60 focus:ring-4 focus:ring-blue-400/10'
+        )
+
+        return (
+            <div className="relative z-10" data-chat-bar>
+                <style>{EMOJI_INPUT_STYLES}</style>
+
+                <FormatHelper
+                    isOpen={showFormatting}
+                    onClose={() => setShowFormatting(false)}
+                    onFormatSelect={(wrap) => {
+                        if (lastSelectionRef.current && lastSelectionRef.current.text.length > 0) {
+                            const el = contentEditableRef.current
+                            if (el) restoreSelection(el, lastSelectionRef.current)
+                        }
+                        applyMarkdown(wrap)
+                        setShowFormatting(false)
+                    }}
+                />
+
+                <GifPicker
+                    isOpen={showGifs}
+                    onClose={() => setShowGifs(false)}
+                    onGifSelect={(url) => {
+                        insertGif(url)
+                        setShowGifs(false)
+                    }}
+                />
+
+                <EmojiPicker
+                    isOpen={showEmojis}
+                    onClose={() => setShowEmojis(false)}
+                    onSelect={(emoji) => {
+                        const el = contentEditableRef.current
+                        if (!el) return
+                        if (lastSelectionRef.current && lastSelectionRef.current.text.length > 0) {
+                            restoreSelection(el, lastSelectionRef.current)
+                            const sel = window.getSelection()
+                            if (sel && sel.rangeCount > 0) {
+                                const range = sel.getRangeAt(0)
+                                range.deleteContents()
+                                insertEmoji(el, emoji)
+                            }
+                        } else {
+                            insertEmoji(el, emoji)
+                        }
+                        updateForm()
+                    }}
+                />
+
+                <Card className={cardClass}>
+                    <CardContent className="p-4">
+                        <form onSubmit={form.handleSubmit(onSend)} className="flex flex-col gap-3 md:flex-row md:items-start md:gap-3">
+                            {/* Toolbar */}
+                            <div className="flex gap-2 md:flex-col">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    data-popup-trigger
+                                    onClick={() => handlePopupToggle('format')}
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    className={cn(
+                                        'rounded-xl transition-all border-2',
+                                        isDark
+                                            ? 'border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20'
+                                            : 'border-purple-300/50 bg-purple-50/80 hover:bg-purple-100'
+                                    )}
+                                    title="Formatierung"
+                                >
+                                    <Type className={cn('w-4 h-4', isDark ? 'text-purple-300' : 'text-purple-700')} strokeWidth={2} />
+                                </Button>
+
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    data-popup-trigger
+                                    onClick={() => handlePopupToggle('emoji')}
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    className={cn(
+                                        'rounded-xl transition-all border-2',
+                                        isDark
+                                            ? 'border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20'
+                                            : 'border-blue-300/50 bg-blue-50/80 hover:bg-blue-100'
+                                    )}
+                                    title="Emojis"
+                                >
+                                    <SmilePlus className={cn('w-4 h-4', isDark ? 'text-blue-300' : 'text-blue-700')} strokeWidth={2} />
+                                </Button>
+
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    data-popup-trigger
+                                    onClick={() => handlePopupToggle('gif')}
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    className={cn(
+                                        'rounded-xl transition-all border-2',
+                                        isDark
+                                            ? 'border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20'
+                                            : 'border-emerald-300/50 bg-emerald-50/80 hover:bg-emerald-100'
+                                    )}
+                                    title="GIFs"
+                                >
+                                    <Film className={cn('w-4 h-4', isDark ? 'text-emerald-300' : 'text-emerald-700')} strokeWidth={2} />
+                                </Button>
+                            </div>
+
+                            {/* Input */}
+                            <div className="relative flex-1">
+                                <div
+                                    ref={contentEditableRef}
+                                    contentEditable
+                                    className={inputClass}
+                                    onInput={handleInput}
+                                    onKeyDown={handleKeyDown}
+                                    onPaste={handlePaste}
+                                    onBlur={handleBlur}
+                                    onFocus={handleFocus}
+                                    data-placeholder="Type a message...  **bold**  _italic_  ~~strike~~  `code`"
+                                    style={{ lineHeight: '1.5', fontFamily: '"Tahoma", "Verdana", system-ui, sans-serif' }}
+                                />
+                                <div className={cn(
+                                    'absolute bottom-3 right-3 text-[10px] pointer-events-none select-none',
+                                    isDark ? 'text-slate-500' : 'text-slate-400'
+                                )}>
+                                    {form.watch('text').length}/{MAX_MESSAGE_LENGTH}
+                                </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex gap-2 md:flex-col">
+                                <Button
+                                    type="submit"
+                                    size="default"
+                                    className={cn(
+                                        'flex-1 md:flex-none gap-2 rounded-xl transition-all shadow-lg',
+                                        isDark
+                                            ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500/50'
+                                            : 'bg-blue-600 hover:bg-blue-500 text-white'
+                                    )}
+                                >
+                                    <Send className="w-4 h-4" strokeWidth={2} />
+                                    <span className="font-semibold">Send</span>
+                                </Button>
+
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="default"
+                                    onClick={sendWakeUp}
+                                    className={cn(
+                                        'flex-1 md:flex-none gap-1.5 rounded-xl transition-all border-2',
+                                        isDark
+                                            ? 'border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20'
+                                            : 'border-amber-300/60 bg-amber-50/80 hover:bg-amber-100'
+                                    )}
+                                    title="Wecke alle auf!"
+                                >
+                                    <Zap className={cn('w-3.5 h-3.5', isDark ? 'text-amber-300' : 'text-amber-700')} strokeWidth={2.5} />
+                                    <span className={cn('font-bold text-xs', isDark ? 'text-amber-300' : 'text-amber-700')}>Wake up!</span>
+                                </Button>
+                            </div>
+                        </form>
+                    </CardContent>
+                </Card>
+            </div>
+        )
+    }
+
+    // Classic Mode (Original Code)
     const shellBorderClass = gifLimitHit
         ? isDark ? 'gif-limit-hit border-[#fb923c]' : 'gif-limit-hit border-red-300'
         : isDark ? 'border-[#1d3a7a]' : 'border-[#7a96df]'

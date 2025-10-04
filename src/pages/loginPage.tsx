@@ -1,4 +1,14 @@
-import { signInWithPopup, signInAnonymously } from 'firebase/auth'
+import {
+    signInWithPopup,
+    signInAnonymously,
+    fetchSignInMethodsForEmail,
+    AuthErrorCodes,
+    GoogleAuthProvider,
+    GithubAuthProvider,
+    linkWithCredential,
+    AuthCredential
+} from 'firebase/auth'
+import { FirebaseError } from 'firebase/app'
 import { auth, googleProvider, githubProvider } from '@/lib/firebase'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/auth'
@@ -11,6 +21,7 @@ export function LoginPage() {
     const location = useLocation()
     const { user, loading, initializing } = useAuth()
     const [isLoggingIn, setIsLoggingIn] = useState(false)
+    const [errorMessage, setErrorMessage] = useState<string | null>(null)
     const { theme } = useTheme()
     const isDark = theme === 'dark'
 
@@ -35,14 +46,93 @@ export function LoginPage() {
         }
     }, [user, navigate, from, initializing, loading, isLoggingIn])
 
+    const handleAccountLinking = async (
+        error: unknown,
+        attemptedProvider: 'google' | 'github'
+    ) => {
+        if (!(error instanceof FirebaseError)) {
+            console.error(`${attemptedProvider} login error`, error)
+            setErrorMessage('Login fehlgeschlagen. Bitte versuche es erneut.')
+            return
+        }
+
+        if (error.code !== AuthErrorCodes.ACCOUNT_EXISTS_WITH_DIFFERENT_CREDENTIAL) {
+            console.error(`${attemptedProvider} login error`, error)
+            setErrorMessage('Login fehlgeschlagen. Bitte versuche es erneut.')
+            return
+        }
+
+        const pendingCredential =
+            attemptedProvider === 'github'
+                ? GithubAuthProvider.credentialFromError(error)
+                : GoogleAuthProvider.credentialFromError(error)
+
+        const email = (error.customData?.email as string) || ''
+
+        if (!email) {
+            setErrorMessage(
+                'Diese E-Mail ist bereits mit einem anderen Anbieter verknüpft. Bitte melde dich mit dem ursprünglichen Anbieter an.'
+            )
+            return
+        }
+
+        try {
+            const signInMethods = await fetchSignInMethodsForEmail(auth, email)
+
+            const linkWithExistingProvider = async (credential: AuthCredential | null | undefined, provider: 'google' | 'github') => {
+                if (!credential) {
+                    setErrorMessage(
+                        'Verknüpfung nicht möglich. Bitte melde dich zuerst mit dem ursprünglichen Anbieter an und versuche es erneut.'
+                    )
+                    return
+                }
+
+                const result = await signInWithPopup(auth, provider === 'google' ? googleProvider : githubProvider)
+                await linkWithCredential(result.user, credential)
+                setErrorMessage(null)
+            }
+
+            if (signInMethods.includes('google.com')) {
+                await linkWithExistingProvider(pendingCredential, 'google')
+                return
+            }
+
+            if (signInMethods.includes('github.com')) {
+                await linkWithExistingProvider(pendingCredential, 'github')
+                return
+            }
+
+            if (signInMethods.includes('password')) {
+                setErrorMessage(
+                    'Dieses Konto nutzt ein Passwort. Bitte melde dich per E-Mail & Passwort an und verknüpfe weitere Anbieter anschließend in deinen Kontoeinstellungen.'
+                )
+                return
+            }
+
+            if (signInMethods.length > 0) {
+                setErrorMessage(
+                    `Diese E-Mail ist bereits mit folgenden Anbietern verknüpft: ${signInMethods.join(', ')}. Bitte melde dich mit einem dieser Anbieter an.`
+                )
+                return
+            }
+
+            setErrorMessage(
+                'Diese E-Mail ist bereits mit einem anderen Anbieter verknüpft. Bitte melde dich mit dem ursprünglichen Anbieter an.'
+            )
+        } catch (linkingError) {
+            console.error('Provider linking failed', linkingError)
+            setErrorMessage('Verknüpfung fehlgeschlagen. Bitte versuche es erneut oder wähle einen anderen Anbieter.')
+        }
+    }
+
     const handleGoogleLogin = async () => {
         try {
             setIsLoggingIn(true)
+            setErrorMessage(null)
             await signInWithPopup(auth, googleProvider)
             // Navigation erfolgt über useEffect
         } catch (error) {
-            console.error('Google login error:', error)
-            alert('Login fehlgeschlagen. Bitte versuche es erneut.')
+            await handleAccountLinking(error, 'google')
         } finally {
             setIsLoggingIn(false)
         }
@@ -51,11 +141,11 @@ export function LoginPage() {
     const handleGithubLogin = async () => {
         try {
             setIsLoggingIn(true)
+            setErrorMessage(null)
             await signInWithPopup(auth, githubProvider)
             // Navigation erfolgt über useEffect
         } catch (error) {
-            console.error('GitHub login error:', error)
-            alert('Login fehlgeschlagen. Bitte versuche es erneut.')
+            await handleAccountLinking(error, 'github')
         } finally {
             setIsLoggingIn(false)
         }
@@ -210,6 +300,19 @@ export function LoginPage() {
                         </div>
 
                         <div className="space-y-4">
+                            {errorMessage && (
+                                <div
+                                    className={
+                                        isDark
+                                            ? 'rounded-md border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200'
+                                            : 'rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700'
+                                    }
+                                    style={{ fontFamily: 'Tahoma, Verdana, sans-serif' }}
+                                >
+                                    {errorMessage}
+                                </div>
+                            )}
+
                             <button
                                 onClick={handleGithubLogin}
                                 disabled={isLoggingIn}
